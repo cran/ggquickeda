@@ -1,4 +1,4 @@
-suppressMessages ({
+suppressMessages({
   library(shiny)
   library(shinyjs)
   library(colourpicker)
@@ -14,7 +14,9 @@ suppressMessages ({
   library(lazyeval)
   library(ggrepel)
   library(plotly)
+  library(ggpmisc)
   library(ggquickeda)
+  library(table1)
 })
 
 options(shiny.maxRequestSize=250*1024^2) 
@@ -56,15 +58,28 @@ allstats <- c("N",
               "SD",
               "CV%",
               "Median",
+              "q01",
+              "q02.5",
+              "q05",
+              "q10",
+              "q25",
+              "q50",
+              "q75",
+              "q90",
+              "q95",
+              "q97.5",
+              "q99",
               "Min",
               "Max",
               "IQR",
+              "Q1","Q2","Q3","T1","T2",
               "Geo. Mean",
               "Geo. CV%",
               "Mean (SD)",
               "Mean (CV%)",
               "Mean (SD) (CV%)",
-              "Median [Min, Max]",
+              "Median [Min, Max]","[Min, Max]",
+              "Median [Q1, Q3]",
               "Median [IQR]",
               "Geo. Mean (Geo. CV%)")
 

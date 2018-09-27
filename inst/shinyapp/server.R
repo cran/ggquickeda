@@ -44,7 +44,7 @@ function(input, output, session) {
   add_factor_lvl_change_box <- function() {
     changeLblsVals$numCurrent <- changeLblsVals$numCurrent + 1
     
-    df <- recodedata3()
+    df <- factor_merge_data()
     items <- names(df)
     names(items) <- items
     MODEDF <- sapply(df, is.numeric)
@@ -83,162 +83,163 @@ function(input, output, session) {
       )
     )
     
+    # if we already had this many sections before, no need to wire up any
+    # new observers
     if (changeLblsVals$numCurrent <= changeLblsVals$numTotal) {
-      # if we already had this many sections before, no need to wire up any
-      # new observers
-    } else {
-      num1 <- changeLblsVals$numCurrent
-      changeLblsVals$numTotal <- num1
-      
-      output[[paste0("factor_lvl_change_labeltext_", num1)]] <- renderText({
-        df <- recodedata3()
-        selected_var <- input[[paste0("factor_lvl_change_select_", num1)]]
-        if (is.null(selected_var) || selected_var == "") return(NULL)
-        if (!selected_var %in% names(df)) return(NULL)
-        labeltextout <- c("Old labels", levels(df[, selected_var]))
-        labeltextout   
-      })
-      
-      observeEvent(input[[paste0("factor_lvl_change_select_", num1)]], {
-        selected_var <- input[[paste0("factor_lvl_change_select_", num1)]]
-        if (selected_var == "") return()
-        shinyjs::disable(paste0("factor_lvl_change_select_", num1))
-
-        df <- recodedata3()
-        MODEDF <- sapply(df, is.numeric)
-        
-        ALLNAMES <- names(df)[!MODEDF]
-        ALLNAMES <- ALLNAMES[!ALLNAMES=="custombins"]
-        if (changeLblsVals$numCurrent < length(ALLNAMES)) {
-          shinyjs::enable("factor_lvl_change_add")
-        }
-        df <- recodedata3()
-        shinyjs::show(paste0("factor_lvl_change_labels_", num1))
-        
-        selected_var_factor <- as.factor( df[, selected_var] )
-        nlevels <- nlevels(selected_var_factor)
-        levelsvalues <- levels(selected_var_factor)
-
-        # Start tracking Recoding/Reordering in this variable
-        # This object contains snapshots of the factor levels
-        # including their recoded values. The elements represent the
-        # newly named recoded level, while its name refers to the value
-        # found in the data. Order is also retained for values present.
-        # The dictionary keeps track of known recodings so that you can add
-        # a level back using its new name (not resticted to only its true level)
-        factor_lvl_diff_tracker[[ as.character(num1) ]] <- list(
-          var = selected_var,
-          last_value = setNames(levelsvalues, levelsvalues),
-          second_last_value = setNames(levelsvalues, levelsvalues),
-          dictionary_of_edits = setNames(levelsvalues, levelsvalues)
-        )
-        
-        updateSelectizeInput(
-          session, paste0("factor_lvl_change_labels_", num1),
-          label = paste(selected_var, "requires", nlevels, "new labels,
-                        edit the labels via Backspace/Enter keys. Drag and Drop the items to the desired order."),
-          choices = levelsvalues,
-          selected = levelsvalues,
-          options = list(
-            create = TRUE, createOnBlur = TRUE,
-            plugins = list('drag_drop', 'restore_on_backspace'),
-            maxItems = nlevels
-          )
-        )
-      })
-      
-      observeEvent(input[[ paste0("factor_lvl_change_labels_", num1) ]], {
-        
-        value_on_arrival <- input[[ paste0("factor_lvl_change_labels_", num1) ]]
-        names(value_on_arrival) <- value_on_arrival
-        
-        diff_tracker <- factor_lvl_diff_tracker[[ as.character(num1) ]]
-        previous_value <- diff_tracker[[ "last_value" ]]
-        second_last_value <- diff_tracker[[ "second_last_value" ]]
-        
-        if ( identical(value_on_arrival, previous_value)) return()
-        
-        # The condition below handles label-adding events,
-        # including addition of previously deleted levels.
-        # These show up as a delete followed by an addition with a different name/value.
-        # Hence, need to track the last 2 values and compare the newest with
-        # the value twice preceding it
-        #       EG.       Renaming Susan to Sue looks like this:
-        #             1. c('Alfred', 'Betty', 'Susan')  <-- compare this
-        #             2. c('Alfred', 'Betty')
-        #             3. c('Alfred', 'Betty', 'Sue')   <-- against this
-        #
-        if (length(previous_value[ !is.na(previous_value)]) < length(value_on_arrival) ) {
-          
-          lvl_dict <-  diff_tracker[[ "dictionary_of_edits" ]]
-          new_value <- setdiff(value_on_arrival, previous_value)
-          
-          already_in_dict <- new_value %in% lvl_dict
-          
-          if ( !isTRUE(already_in_dict)) { # If label has never been seen, add it to the dictionary
-            
-            value_before_edit <- setdiff(second_last_value[ !is.na(second_last_value)], value_on_arrival)
-            lvl_in_data <- names(lvl_dict[ match(value_before_edit, lvl_dict)])
-            
-            new_value_tmp <- new_value
-            names(new_value_tmp) <- lvl_in_data
-            
-            updated_lvl_dict <- c(lvl_dict, new_value_tmp)
-            updated_lvl_dict <- updated_lvl_dict[ !duplicated(updated_lvl_dict)]
-            updated_lvl_dict <- updated_lvl_dict[ !is.na(names(updated_lvl_dict))]
-            
-            factor_lvl_diff_tracker[[ as.character(num1) ]][[ "dictionary_of_edits" ]] <-
-              updated_lvl_dict
-          }
-          
-        }
-        
-        # This line should read directly from the most up-to-date value
-        # (not the object `difftracker`)
-        refreshed_lvl_dict <-  factor_lvl_diff_tracker[[ as.character(num1) ]][[ "dictionary_of_edits" ]]
-        
-        # If a level was removed, determine which level was removed by looking
-        # at the levels before the change, and impute it with NA, while keeping
-        # a place for it.
-        #       EG.       Removing bat looks like this:
-        #             1. c(ant = 'ant',  bat = 'bat', cat = 'cat')
-        #             ... becomes...
-        #             2. c(ant = 'ant',  bat = NA,    cat = 'cat')
-        if( length(value_on_arrival) < length(previous_value) ){
-          
-          imputed_missing_current_value <- previous_value
-          true_values <- names(refreshed_lvl_dict)[ match(value_on_arrival, refreshed_lvl_dict)]
-          imputed_missing_current_value[ !names(imputed_missing_current_value) %in% true_values] <- NA_character_
-          imputed_missing_current_value[ names(imputed_missing_current_value) %in% true_values] <- value_on_arrival
-          value_on_arrival <- imputed_missing_current_value
-          
-        }
-        
-        # Next we change the *names* of the levels (after recoding) to match the
-        # values taken in the data.
-        # This is accomplished using the dictionary_of_edits that has been tracking
-        # all recoding/relabelling events.
-        #       EG.  Given a vector like this..
-        #               c(ant = 'ant',  bat = 'bat', cat = 'MrChestington')
-        #             .. and a dictionary like this...
-        #               c(ant = 'ant', bat = 'bat', cat = 'cat', ant = 'MrAnt',
-        #                 bat = 'batface', cat = 'MrChestington')
-        #
-        #             ... becomes...
-        #             2. c(ant = 'ant',  bat = NA,    cat = 'cat')
-        
-        
-        # names(value_on_arrival)[ !is.na(value_on_arrival)] <- names(refreshed_lvl_dict)[match(value_on_arrival[ !is.na(value_on_arrival)], refreshed_lvl_dict)]
-        
-        
-        names(value_on_arrival)[ !is.na(value_on_arrival)] <-
-          names(refreshed_lvl_dict)[ match(value_on_arrival[ !is.na(value_on_arrival)], refreshed_lvl_dict) ]
-        
-        factor_lvl_diff_tracker[[ as.character(num1) ]][[ "last_value" ]] <- value_on_arrival
-        factor_lvl_diff_tracker[[ as.character(num1) ]][[ "second_last_value" ]] <- previous_value
-        
-      })
+      return()
     }
+    num1 <- changeLblsVals$numCurrent
+    changeLblsVals$numTotal <- num1
+    
+    output[[paste0("factor_lvl_change_labeltext_", num1)]] <- renderText({
+      df <- factor_merge_data()
+      selected_var <- input[[paste0("factor_lvl_change_select_", num1)]]
+      if (is.null(selected_var) || selected_var == "") return(NULL)
+      if (!selected_var %in% names(df)) return(NULL)
+      labeltextout <- c("Old labels", levels(df[, selected_var]))
+      labeltextout   
+    })
+    
+    observeEvent(input[[paste0("factor_lvl_change_select_", num1)]], {
+      selected_var <- input[[paste0("factor_lvl_change_select_", num1)]]
+      if (selected_var == "") return()
+      shinyjs::disable(paste0("factor_lvl_change_select_", num1))
+
+      df <- factor_merge_data()
+      MODEDF <- sapply(df, is.numeric)
+      
+      ALLNAMES <- names(df)[!MODEDF]
+      ALLNAMES <- ALLNAMES[!ALLNAMES=="custombins"]
+      if (changeLblsVals$numCurrent < length(ALLNAMES)) {
+        shinyjs::enable("factor_lvl_change_add")
+      }
+      df <- factor_merge_data()
+      shinyjs::show(paste0("factor_lvl_change_labels_", num1))
+      
+      selected_var_factor <- as.factor( df[, selected_var] )
+      nlevels <- nlevels(selected_var_factor)
+      levelsvalues <- levels(selected_var_factor)
+
+      # Start tracking Recoding/Reordering in this variable
+      # This object contains snapshots of the factor levels
+      # including their recoded values. The elements represent the
+      # newly named recoded level, while its name refers to the value
+      # found in the data. Order is also retained for values present.
+      # The dictionary keeps track of known recodings so that you can add
+      # a level back using its new name (not resticted to only its true level)
+      factor_lvl_diff_tracker[[ as.character(num1) ]] <- list(
+        var = selected_var,
+        last_value = setNames(levelsvalues, levelsvalues),
+        second_last_value = setNames(levelsvalues, levelsvalues),
+        dictionary_of_edits = setNames(levelsvalues, levelsvalues)
+      )
+      
+      updateSelectizeInput(
+        session, paste0("factor_lvl_change_labels_", num1),
+        label = paste(selected_var, "requires", nlevels, "new labels,
+                      edit the labels via Backspace/Enter keys. Drag and Drop the items to the desired order. Do not use semicolons."),
+        choices = levelsvalues,
+        selected = levelsvalues,
+        options = list(
+          create = TRUE, createOnBlur = TRUE,
+          delimiter = ";",
+          plugins = list('drag_drop', 'restore_on_backspace'),
+          maxItems = nlevels
+        )
+      )
+    })
+    
+    observeEvent(input[[ paste0("factor_lvl_change_labels_", num1) ]], {
+      
+      value_on_arrival <- input[[ paste0("factor_lvl_change_labels_", num1) ]]
+      names(value_on_arrival) <- value_on_arrival
+      
+      diff_tracker <- factor_lvl_diff_tracker[[ as.character(num1) ]]
+      previous_value <- diff_tracker[[ "last_value" ]]
+      second_last_value <- diff_tracker[[ "second_last_value" ]]
+      
+      if ( identical(value_on_arrival, previous_value)) return()
+      
+      # The condition below handles label-adding events,
+      # including addition of previously deleted levels.
+      # These show up as a delete followed by an addition with a different name/value.
+      # Hence, need to track the last 2 values and compare the newest with
+      # the value twice preceding it
+      #       EG.       Renaming Susan to Sue looks like this:
+      #             1. c('Alfred', 'Betty', 'Susan')  <-- compare this
+      #             2. c('Alfred', 'Betty')
+      #             3. c('Alfred', 'Betty', 'Sue')   <-- against this
+      #
+      if (length(previous_value[ !is.na(previous_value)]) < length(value_on_arrival) ) {
+        
+        lvl_dict <-  diff_tracker[[ "dictionary_of_edits" ]]
+        new_value <- setdiff(value_on_arrival, previous_value)
+        
+        already_in_dict <- new_value %in% lvl_dict
+        
+        if ( !isTRUE(already_in_dict)) { # If label has never been seen, add it to the dictionary
+          
+          value_before_edit <- setdiff(second_last_value[ !is.na(second_last_value)], value_on_arrival)
+          lvl_in_data <- names(lvl_dict[ match(value_before_edit, lvl_dict)])
+          
+          new_value_tmp <- new_value
+          names(new_value_tmp) <- lvl_in_data
+          
+          updated_lvl_dict <- c(lvl_dict, new_value_tmp)
+          updated_lvl_dict <- updated_lvl_dict[ !duplicated(updated_lvl_dict)]
+          updated_lvl_dict <- updated_lvl_dict[ !is.na(names(updated_lvl_dict))]
+          
+          factor_lvl_diff_tracker[[ as.character(num1) ]][[ "dictionary_of_edits" ]] <-
+            updated_lvl_dict
+        }
+        
+      }
+      
+      # This line should read directly from the most up-to-date value
+      # (not the object `difftracker`)
+      refreshed_lvl_dict <-  factor_lvl_diff_tracker[[ as.character(num1) ]][[ "dictionary_of_edits" ]]
+      
+      # If a level was removed, determine which level was removed by looking
+      # at the levels before the change, and impute it with NA, while keeping
+      # a place for it.
+      #       EG.       Removing bat looks like this:
+      #             1. c(ant = 'ant',  bat = 'bat', cat = 'cat')
+      #             ... becomes...
+      #             2. c(ant = 'ant',  bat = NA,    cat = 'cat')
+      if( length(value_on_arrival) < length(previous_value) ){
+        
+        imputed_missing_current_value <- previous_value
+        true_values <- names(refreshed_lvl_dict)[ match(value_on_arrival, refreshed_lvl_dict)]
+        imputed_missing_current_value[ !names(imputed_missing_current_value) %in% true_values] <- NA_character_
+        imputed_missing_current_value[ names(imputed_missing_current_value) %in% true_values] <- value_on_arrival
+        value_on_arrival <- imputed_missing_current_value
+        
+      }
+      
+      # Next we change the *names* of the levels (after recoding) to match the
+      # values taken in the data.
+      # This is accomplished using the dictionary_of_edits that has been tracking
+      # all recoding/relabelling events.
+      #       EG.  Given a vector like this..
+      #               c(ant = 'ant',  bat = 'bat', cat = 'MrChestington')
+      #             .. and a dictionary like this...
+      #               c(ant = 'ant', bat = 'bat', cat = 'cat', ant = 'MrAnt',
+      #                 bat = 'batface', cat = 'MrChestington')
+      #
+      #             ... becomes...
+      #             2. c(ant = 'ant',  bat = NA,    cat = 'cat')
+      
+      
+      # names(value_on_arrival)[ !is.na(value_on_arrival)] <- names(refreshed_lvl_dict)[match(value_on_arrival[ !is.na(value_on_arrival)], refreshed_lvl_dict)]
+      
+      
+      names(value_on_arrival)[ !is.na(value_on_arrival)] <-
+        names(refreshed_lvl_dict)[ match(value_on_arrival[ !is.na(value_on_arrival)], refreshed_lvl_dict) ]
+      
+      factor_lvl_diff_tracker[[ as.character(num1) ]][[ "last_value" ]] <- value_on_arrival
+      factor_lvl_diff_tracker[[ as.character(num1) ]][[ "second_last_value" ]] <- previous_value
+      
+    })
   }
   
   remove_last_factor_lvl_change_box <- function() {
@@ -266,8 +267,8 @@ function(input, output, session) {
     values$maindata <- read.csv(file, na.strings = c("NA","."))
   })
   
-  # when recodedata3 changes, reset the dynamic "change factor levels" boxes
-  observeEvent(recodedata3(), {
+  # reset the dynamic "change factor levels" boxes
+  observeEvent(factor_merge_data(), {
     shinyjs::show("factor_lvl_change_section")
     
     changeLblsVals$numCurrent <- 0
@@ -289,8 +290,25 @@ function(input, output, session) {
   
   observeEvent(input$gridlinescolreset, {
       shinyjs::reset("gridlinescol")
-    })   
-  
+    })
+  observeEvent(input$stripbackfillresetx, {
+    shinyjs::reset("stripbackgroundfillx")
+  })
+  observeEvent(input$stripbackfillresety, {
+    shinyjs::reset("stripbackgroundfilly")
+  })
+  observeEvent(input$vlinecol1reset, {
+    shinyjs::reset("vlinecol1")
+  })
+  observeEvent(input$vlinecol2reset, {
+    shinyjs::reset("vlinecol2")
+  })
+  observeEvent(input$hlinecol1reset, {
+    shinyjs::reset("hlinecol1")
+  })
+  observeEvent(input$hlinecol2reset, {
+    shinyjs::reset("hlinecol2")
+  })
   output$ycol <- renderUI({
     df <- values$maindata
     validate(       need(!is.null(df), "Please select a data set"))
@@ -324,7 +342,8 @@ function(input, output, session) {
     }
     if (input$yaxisscale!="lineary") {
       updateRadioButtons(session, "yaxisformat", choices = c("default" = "default",
-                                                             "Log 10^x Format" = "logyformat"))
+                                                             "Log 10^x Format" = "logyformat",
+                                                             "Pretty Y" ="logyformat2"))
     }
   })
   observe({
@@ -335,10 +354,24 @@ function(input, output, session) {
     }
     if (input$xaxisscale!="linearx") {
       updateRadioButtons(session, "xaxisformat", choices = c("default" = "default",
-                                                             "Log 10^x Format" = "logxformat"))
+                                                             "Log 10^x Format" = "logxformat",
+                                                             "Pretty X" ="logxformat2"))
     }
   })
   
+  observe({
+
+    if (length(input$y)>1) {
+      updateRadioButtons(session, "yaxiszoom", choices = c("None" = "noyzoom"),inline=TRUE)
+    }
+    if (length(input$y)<2) {
+      updateRadioButtons(session, "yaxiszoom", choices = c("None" = "noyzoom",
+                                                           "Automatic" = "automaticyzoom",
+                                                           "User" = "useryzoom"),inline=TRUE)
+    }
+  })
+
+    
   outputOptions(output, "ycol", suspendWhenHidden=FALSE)
   outputOptions(output, "xcol", suspendWhenHidden=FALSE)
   
@@ -356,7 +389,38 @@ function(input, output, session) {
   observeEvent(input$catvarin, ignoreNULL = FALSE, {
     shinyjs::toggle("ncuts", condition = !is.null(input$catvarin) && length(input$catvarin) >= 1)
   })
+  
+  output$catvarquant <- renderUI({
+    df <-values$maindata
+    validate(       need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    MODEDF <- sapply(df, function(x) is.numeric(x))
+    NAMESTOKEEP2<- names(df)  [ MODEDF ]
+    if (!is.null(input$catvarin)) {
+      if (length(input$catvarin ) >=1) {
+        NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
+      }  
+    }
+    selectInput('catvarquantin',
+                label = 'Recode into Quantile Categories:',
+                choices=NAMESTOKEEP2,multiple=TRUE)
+  })
 
+  # Show/hide the "N of cut quantiles" input
+  observeEvent(input$catvarquantin, ignoreNULL = FALSE, {
+    shinyjs::toggle("ncutsquant",
+condition = !is.null(input$catvarquantin) && length(input$catvarquantin) >= 1)
+  })
+  observeEvent(input$catvarquantin, ignoreNULL = FALSE, {
+  shinyjs::toggle("zeroplacebo",
+                  condition = !is.null(input$catvarquantin) && length(input$catvarquantin) >= 1)
+})
+  observeEvent(input$catvarquantin, ignoreNULL = FALSE, {
+    shinyjs::toggle("missingcategory",
+                    condition = !is.null(input$catvarquantin) && length(input$catvarquantin) >= 1)
+  })
+  
   output$catvar2 <- renderUI({
     df <-values$maindata
     validate(       need(!is.null(df), "Please select a data set"))
@@ -364,6 +428,11 @@ function(input, output, session) {
     names(items)=items
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
+    if (!is.null(input$catvarquantin)) {
+      if (length(input$catvarquantin ) >=1) {
+        NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarquantin) ]
+      }  
+    }
     if (!is.null(input$catvarin)) {
       if (length(input$catvarin ) >=1) {
         NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
@@ -382,6 +451,9 @@ function(input, output, session) {
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     if (!is.null(input$catvarin)&length(input$catvarin ) >=1) {
       NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
+    }
+    if (!is.null(input$catvarquantin)&length(input$catvarquantin ) >=1) {
+      NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarquantin) ]
     }
     if (!is.null(input$catvar2in)&length(input$catvar2in ) >=1) {
       NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvar2in) ]
@@ -427,9 +499,7 @@ function(input, output, session) {
   outputOptions(output, "catvar3", suspendWhenHidden=FALSE)
   outputOptions(output, "ncuts2", suspendWhenHidden=FALSE)
   outputOptions(output, "asnumeric", suspendWhenHidden=FALSE)
-  
-  
-  
+  outputOptions(output, "catvarquant", suspendWhenHidden=FALSE)
   
   recodedata1  <- reactive({
     df <- values$maindata 
@@ -444,9 +514,50 @@ function(input, output, session) {
     df
   })
   
-  
+  recodedataquant  <- reactive({
+    df <- recodedata1() 
+    validate(       need(!is.null(df), "Please select a data set"))
+    ngroups<- input$ncutsquant
+    zeroplacebo<- input$zeroplacebo
+    missingcategory <- input$missingcategory
+    if(!is.null(input$catvarquantin)&length(input$catvarquantin ) >=1) {
+      for (i in 1:length(input$catvarquantin ) ) {
+        varname<- input$catvarquantin[i]
+        x2<- unlist(df[,varname])
+        if(zeroplacebo&&missingcategory){
+          df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
+                                          varlabel=varname,
+                                  withhold=list(
+                                    Placebo=(x2==0),
+                                    Missing=(is.na(x2))))
+        }
+        if(zeroplacebo&&!missingcategory){
+          df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
+                                          varlabel=varname,
+                                  withhold=list(
+                                    Placebo=(x2==0)))
+        }
+        if(!zeroplacebo&&missingcategory){
+          df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
+                                          varlabel=varname,
+                                  withhold=list(
+                                    Missing=(is.na(x2))))
+        }
+        if(!zeroplacebo&&!missingcategory){
+          withhold<- NULL
+          df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
+                                          varlabel=varname,
+                                  withhold=NULL)
+        }
+
+      }
+    }
+    df
+  })
+        
+        
   recodedata2  <- reactive({
-    df <- recodedata1()
+    df <- recodedataquant()
     validate(       need(!is.null(df), "Please select a data set"))
     if(!is.null(input$catvar2in) ){
       if(length(input$catvar2in ) >=1) {
@@ -478,7 +589,7 @@ function(input, output, session) {
     df
   })
   output$bintext <- renderText({
-    df <- recodedata3()
+    df <- factor_merge_data()
     validate(       need(!is.null(df), "Please select a data set"))
     bintextout <- ""
     if(input$catvar3in!="" && !is.null(input$asnumericin)) {
@@ -493,7 +604,7 @@ function(input, output, session) {
   })   
   
   recodedata4  <- reactive({
-    df <- recodedata3()
+    df <- factor_merge_data()
     validate(       need(!is.null(df), "Please select a data set"))
     # get all the "change factor levels" inputs and apply them
     for (i in seq_len(changeLblsVals$numCurrent)) {
@@ -513,7 +624,7 @@ function(input, output, session) {
                                       levels = names(ordered_lvls))
       }
       
-      new_labels <- unlist(strsplit(labels, ","))[1:nlevels(df[, variable_name])]
+      new_labels <- labels[1:nlevels(df[, variable_name])]
       new_labels[is.na(new_labels)] <- ""
       levels(df[, variable_name]) <- new_labels
     }
@@ -825,7 +936,7 @@ function(input, output, session) {
     names(items)=items
     items= items 
     items= c(items) 
-    selectizeInput("onerowidgroupin", "ID(s):", choices = items,multiple=TRUE,
+    selectizeInput("onerowidgroupin", "Keep First Row by ID(s):", choices = items,multiple=TRUE,
                    options = list(
                      placeholder = 'Please select at least one variable that is not in y variable(s)',
                      onInitialize = I('function() { this.setValue(""); }'),
@@ -835,7 +946,6 @@ function(input, output, session) {
     
   })
   outputOptions(output, "onerowidgroup", suspendWhenHidden=FALSE)
-  
   filterdata7  <- reactive({
     df <- filterdata6()
     validate(       need(!is.null(df), "Please select a data set"))
@@ -852,11 +962,41 @@ function(input, output, session) {
     as.data.frame(df)
   })
   
-  
-  
+  output$onerowidlastgroup <- renderUI({
+    df <- filterdata7()
+    validate(       need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    items= items 
+    items= c(items) 
+    selectizeInput("onerowidlastgroupin", "Keep Last Row by ID(s):", choices = items,multiple=TRUE,
+                   options = list(
+                     placeholder = 'Please select at least one variable that is not in y variable(s)',
+                     onInitialize = I('function() { this.setValue(""); }'),
+                     plugins = list('remove_button')
+                   )
+    )
+    
+  })
+  outputOptions(output, "onerowidlastgroup", suspendWhenHidden=FALSE)  
+  filterdata8  <- reactive({
+    df <- filterdata7()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if( !is.null(input$onerowidlastgroupin) && length(input$onerowidlastgroupin) >0 ){
+      vars<- c(as.vector(input$onerowidlastgroupin) )
+      df <-   df %>%
+        group_by(!!!syms(vars))
+      df<- df %>% filter(row_number()==n() ) %>%
+        ungroup()
+    }
+    if(is.null(input$onerowidlastgroupin) || length(input$onerowidlastgroupin) <1 ){
+      df <-   df
+    }
+    as.data.frame(df)
+  })
   
   output$roundvar <- renderUI({
-    df <- filterdata7()
+    df <- filterdata8()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       items=names(df)
@@ -874,7 +1014,7 @@ function(input, output, session) {
   outputOptions(output, "roundvar", suspendWhenHidden=FALSE)
   
   rounddata <- reactive({
-    df <- filterdata7()
+    df <- filterdata8()
     validate(       need(!is.null(df), "Please select a data set"))
     if(!is.null(input$roundvarin)&length(input$roundvarin ) >=1) {
       for (i in 1:length(input$roundvarin ) ) {
@@ -893,7 +1033,7 @@ function(input, output, session) {
   
   stackdata <- reactive({
     
-    df <- rounddata() 
+    df <- recodedata4()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       validate(  need(!is.element(input$x,input$y) ,
@@ -984,6 +1124,9 @@ function(input, output, session) {
       }
       if(input$functionordervariable=="Maximum" )  {
         df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) max(x[!is.na(x)]))
+      }
+      if(input$functionordervariable=="N" )  {
+        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) length(x[!is.na(x)]))
       }
       if(input$reverseorder )  {
         df[,varname] <- factor( df[,varname], levels=rev(levels( df[,varname])))
@@ -1090,6 +1233,151 @@ function(input, output, session) {
     df
   })
 
+  # --- Merge factor levels feature ---
+    
+  
+  # Variables to help with maintaining the dynamic number of "merge levels of
+  # a factor" boxes
+  factor_merge_vals <- reactiveValues(
+    num_current = 0,  # How many boxes are there currently
+    num_total = 0  # Max # of boxes at the same time, to prevent memory leaks
+  )
+  
+  # Add UI and corresponding outputs+observers for a "merge factor levels"
+  # section
+  add_factor_merge_box <- function() {
+    factor_merge_vals$num_current <- factor_merge_vals$num_current + 1
+    
+    df <- recodedata3()
+    factors <- df %>%
+      sapply(is.factor) %>%
+      which() %>%
+      names()
+    
+    insertUI(
+      selector = "#factor_merge_placeholder", where = "beforeEnd",
+      immediate = TRUE,
+      div(
+        class = "factor_merge_box",
+        selectizeInput(
+          paste0("factor_merge_select_", factor_merge_vals$num_current),
+          sprintf("Factor to merge (%s):", factor_merge_vals$num_current),
+          choices = c("", factors),
+          selected = ""
+        ),
+        div(
+          class = "blind-dropdown",
+          shinyjs::hidden(
+            checkboxGroupInput(
+              inputId = paste0("factor_merge_levels_", factor_merge_vals$num_current),
+              label = "Levels to merge",
+              choices = c()
+            )
+          )
+        )
+      )
+    )
+    
+    # if we already had this many sections before, no need to wire up any
+    # new observers
+    if (factor_merge_vals$num_current <= factor_merge_vals$num_total) {
+      return()
+    }
+    
+    num1 <- factor_merge_vals$num_current
+    factor_merge_vals$num_total <- num1
+    
+    # when the user selects a factor to merge
+    observeEvent(input[[paste0("factor_merge_select_", num1)]], {
+      selected_var <- input[[paste0("factor_merge_select_", num1)]]
+      
+      if (selected_var == "") {
+        shinyjs::hide(paste0("factor_merge_levels_", num1))
+        return()
+      }
+      shinyjs::show(paste0("factor_merge_levels_", num1))
+      
+      df <- factor_merge_data()
+      levelsvalues <- levels(df[[selected_var]])
+      
+      updateCheckboxGroupInput(
+        session, paste0("factor_merge_levels_", num1),
+        choices = levelsvalues,
+        selected = c()
+      )
+    })
+  }
+  
+  remove_last_factor_merge_box <- function() {
+    updateSelectInput(session, paste0("factor_merge_select_", factor_merge_vals$num_current), selected = "")
+    selector <- paste0("#factor_merge_placeholder .factor_merge_box:nth-child(", factor_merge_vals$num_current, ")")
+    removeUI(selector, multiple = FALSE, immediate = TRUE)
+    factor_merge_vals$num_current <- factor_merge_vals$num_current - 1
+    shinyjs::enable("factor_merge_add")
+  }
+  
+  # Decide if to enable/disable the remove variable labels button
+  observeEvent(factor_merge_vals$num_current, {
+    shinyjs::toggleState("factor_merge_remove", condition = factor_merge_vals$num_current > 0)
+  })
+  
+  # when recodedata3 changes, reset the merge levels UI
+  observeEvent(recodedata3(), {
+    shinyjs::show("factor_merge_section")
+    
+    factor_merge_vals$num_current <- 0
+    
+    removeUI(selector = ".factor_merge_box",
+             multiple = TRUE, immediate = TRUE)
+    
+    add_factor_merge_box()
+  })
+  
+  # add another "merge factor levels" box
+  observeEvent(input$factor_merge_add, {
+    shinyjs::disable(paste0("factor_merge_select_", factor_merge_vals$num_current))
+    shinyjs::disable(paste0("factor_merge_levels_", factor_merge_vals$num_current))
+    add_factor_merge_box()
+  })
+  # remove the last "merge factor levels" box
+  observeEvent(input$factor_merge_remove, {
+    remove_last_factor_merge_box()
+  })
+  
+  # The final dataframe that transforms the data from te previous step into data
+  # after the mergings are processed
+  factor_merge_data_raw <- reactive({
+    df <-  recodedata3()
+    if (is.null(df)) return()
+    
+    for (i in seq_len(factor_merge_vals$num_current)) {
+      # no valid factor is selected
+      variable_name <- input[[paste0("factor_merge_select_", i)]]
+      if (is.null(variable_name) || variable_name == "") next
+      
+      # the checkboxes (levels) of a factor don't match the factor
+      old_levels <- levels(df[[variable_name]])
+      levels_to_merge <- input[[paste0("factor_merge_levels_", i)]]
+      if (is.null(levels_to_merge) || !all(levels_to_merge %in% old_levels)) next
+      
+      new_level <- paste0(levels_to_merge, collapse = "/")
+      new_levels <- c(
+        levels(df[[variable_name]])[!levels(df[[variable_name]]) %in% levels_to_merge],
+        new_level
+      )
+      df[[variable_name]] <-
+        df[[variable_name]] %>%
+        as.character() %>%
+        {.[. %in% levels_to_merge] = new_level; .} %>%
+        factor(levels = new_levels)
+    }
+    df
+  })
+  # so that plot doesn't update too rapidly and the user has time to select multiple labels
+  factor_merge_data <- factor_merge_data_raw %>% debounce(400)
+  
+  # --- End: Merge Factor Levels feature
+  
   finalplotdata <- reactive({
     df <- recodedata5()
     as.data.frame(df)
@@ -1458,12 +1746,18 @@ function(input, output, session) {
             if (length(listvarcor)<=1){
               cors <-  plotdata %>%
                 group_by(!!!syms("yvars")) %>%
-                dplyr::summarize(corcoeff = round(cor(!!as.name(input$x),!!as.name("yvalues"),use="complete.obs"),2))
+                dplyr::summarize(corcoeff = round(cor(!!as.name(input$x),
+                                                      !!as.name("yvalues"),
+                                                      use="complete.obs",
+                                                      method =input$corrtype),2))
             }
             if (length(listvarcor)>=2){
               cors <- plotdata %>%
                 group_by_at(.vars= listvarcor ) %>%
-                dplyr::summarize(corcoeff = round(cor(!!as.name(input$x),!!as.name("yvalues"),use="complete.obs"),2))
+                dplyr::summarize(corcoeff = round(cor(!!as.name(input$x),
+                                                      !!as.name("yvalues"),
+                                                      use="complete.obs",
+                                                      method =input$corrtype),2))
             }
             cors<-as.data.frame(cors)
             
@@ -1746,38 +2040,51 @@ function(input, output, session) {
         ###### Mean section  END 
         
         ###### Smoothing Section START
-        if(!is.null(input$Smooth) ){
+        if(input$Smooth!="None"){
+          
+          if(input$smoothmethod=="loess") {
           familyargument <- input$loessfamily
-          if(input$smoothmethod=="glm") {
-            familyargument<- "binomial"  
-          }
           methodsargument<- list(family = familyargument,degree=input$loessdegree) 
-          if(input$smoothmethod=="glm"){
+          }
+          
+          if(input$smoothmethod=="lm") {
+            familyargument<- "gaussian"
             methodsargument<- list(family = familyargument) 
           }
           
+          if(input$smoothmethod=="glm1") {
+            familyargument<- "binomial" 
+            methodsargument<- list(family = familyargument) 
+            
+          }
+          if(input$smoothmethod=="glm2") {
+            familyargument<- "poisson"
+            methodsargument<- list(family = familyargument) 
+          }
+          smoothmethodargument<- ifelse(input$smoothmethod%in%c("glm1","glm2"),
+                                        "glm",input$smoothmethod)
           spanplot <- input$loessens
           levelsmooth<- input$smoothselevel
           if ( input$ignoregroup) {
             if (!input$ignorecol) {
               if (input$Smooth=="Smooth")
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,aes(group=NULL))
               
               if (input$Smooth=="Smooth and SE")
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,aes(group=NULL))
               
               if (input$Smooth=="Smooth"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,aes(group=NULL))+  
                   aes_string(weight=input$weightin)
               
               if (input$Smooth=="Smooth and SE"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,aes(group=NULL))+  
                   aes_string(weight=input$weightin)
@@ -1785,23 +2092,23 @@ function(input, output, session) {
             if (input$ignorecol) {
               colsmooth <- input$colsmooth
               if (input$Smooth=="Smooth")
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,col=colsmooth,aes(group=NULL))
               
               if (input$Smooth=="Smooth and SE")
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,col=colsmooth,aes(group=NULL))
               
               if (input$Smooth=="Smooth"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,col=colsmooth,aes(group=NULL))+  
                   aes_string(weight=input$weightin)
               
               if (input$Smooth=="Smooth and SE"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,col=colsmooth,aes(group=NULL))+  
                   aes_string(weight=input$weightin)
@@ -1812,23 +2119,23 @@ function(input, output, session) {
           if ( !input$ignoregroup) {
             if (!input$ignorecol) {
               if (input$Smooth=="Smooth")
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot)
               
               if (input$Smooth=="Smooth and SE")
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot)
               
               if (input$Smooth=="Smooth"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot)+  
                   aes_string(weight=input$weightin)
               
               if (input$Smooth=="Smooth and SE"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot)+  
                   aes_string(weight=input$weightin)
@@ -1836,29 +2143,75 @@ function(input, output, session) {
             if (input$ignorecol) {
               colsmooth <- input$colsmooth
               if (input$Smooth=="Smooth")
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,col=colsmooth)
               
               if (input$Smooth=="Smooth and SE")
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,col=colsmooth)
               
               if (input$Smooth=="Smooth"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,
+                p <- p + geom_smooth(method=smoothmethodargument,
                                      method.args = methodsargument,
                                      size=1.5,se=F,span=spanplot,col=colsmooth)+  
                   aes_string(weight=input$weightin)
               
               if (input$Smooth=="Smooth and SE"& input$weightin != 'None')
-                p <- p + geom_smooth(method=input$smoothmethod,level=levelsmooth,
+                p <- p + geom_smooth(method=smoothmethodargument,level=levelsmooth,
                                      method.args = methodsargument,
                                      size=1.5,se=T,span=spanplot,col=colsmooth)+  
                   aes_string(weight=input$weightin)
             }
             
           }
+          if (input$smoothmethod=="lm"&&input$showslopepvalue&&!input$showadjrsquared){
+            p <- p+
+                ggpmisc::stat_fit_glance(method = "lm", 
+                                method.args = list(formula = y ~ x),
+                                geom = "text_repel",
+                                label.x=-Inf ,label.y=Inf,
+                                aes(label = paste("P-value = ",
+                                signif(..p.value.., digits = 3), sep = "")),
+            show.legend = FALSE)
+            
+            
+          }
+          if (input$smoothmethod=="lm"&&input$showadjrsquared&&!input$showslopepvalue){
+            p <- p+
+              ggpmisc::stat_fit_glance(method = "lm", 
+                                       method.args = list(formula = y ~ x),
+                                       geom = "text_repel",
+                                       label.x=-Inf ,label.y=-Inf,
+                                       aes(label = paste("R[adj]^2==",
+                                      signif(..adj.r.squared.., digits = 2), sep = "")),
+                                       show.legend = FALSE,parse=TRUE)
+            
+            
+          }
+          if (input$smoothmethod=="lm"&&input$showslopepvalue&&input$showadjrsquared){
+            p <- p+
+              ggpmisc::stat_fit_glance(method = "lm", 
+                                       method.args = list(formula = y ~ x),
+                                       geom = "text_repel",
+                                       label.x=-Inf ,label.y=Inf,
+                                       aes(label = paste("P-value = ",
+                                                         signif(..p.value.., digits = 3), sep = "")),
+                                       show.legend = FALSE)
+            
+            p <- p+
+              ggpmisc::stat_fit_glance(method = "lm", 
+                                       method.args = list(formula = y ~ x),
+                                       geom = "text_repel",
+                                       #label.x.npc = "left", label.y.npc = "bottom",
+                                       label.x=-Inf ,label.y=-Inf,
+                                       aes(label = paste("R[adj]^2==",
+                                                         signif(..adj.r.squared.., digits = 2), sep = "")),
+                                       show.legend = FALSE,parse=TRUE)
+          }
+          
+    
           
           ###### smooth Section END
         }
@@ -2408,19 +2761,55 @@ function(input, output, session) {
               & input$colorin == 'None')
             p <- p + aes(group=1)
           
-          if ( input$histogramaddition){
-            p <- p+ aes(y=..density..)+
-              geom_histogram(alpha=0.2)
+          if ( input$histogramaddition=="Counts"){
+            p <- p+ 
+              geom_histogram(aes(y=..count..),
+                             alpha=0.2,bins = input$histobinwidth)+
+              ylab("Counts")
           }
-          if ( input$densityaddition){
+          if ( input$histogramaddition=="Density"){
             p <- p+
-              geom_density(alpha=0.1)
+              geom_histogram(aes(y=..density..),
+                             alpha=0.2,bins = input$histobinwidth)+
+              ylab("Density")
+          }
+          
+          
+          if ( input$densityaddition=="Density"){
+            p <- p+
+              geom_density(aes(y=..density..),alpha=0.1)+
+              ylab("Density")
             
           }
+          if ( input$densityaddition=="Scaled Density"){
+            p <- p+
+              geom_density(aes(y=..scaled..),alpha=0.1)+
+              ylab("Scaled Density")
+            
+          }
+          if ( input$densityaddition=="Counts"){
+            p <- p+
+              geom_density(aes(y=..count..),alpha=0.1)+
+              ylab("Counts")
+            
+          }
+          
         }
         
         if(!is.numeric(plotdata[,input$x]) ){
+          if(input$barplotorder=="frequency"){
+            plotdata[,input$x]<- factor(as.factor(plotdata[,input$x]),
+                                        levels=names(sort(table(plotdata[,input$x]), 
+                                                          decreasing=FALSE)))
+          }
+          if(input$barplotorder=="revfrequency"){
+            plotdata[,input$x]<- factor(as.factor(plotdata[,input$x]),
+                                        levels=names(sort(table(plotdata[,input$x]), 
+                                                          decreasing=TRUE)))           
+          }
           p <- sourceable(ggplot(plotdata, aes_string(x=input$x)))
+          
+
           
           if (input$colorin != 'None')
             p <- p + aes_string(color=input$colorin)
@@ -2489,98 +2878,195 @@ function(input, output, session) {
       ###### Univariate SECTION END
       
       
-      facets <- paste(input$facetrowin,'~', input$facetcolin)
-      
-      if (input$facetrowextrain !="."&input$facetrowin !="."){
-        facets <- paste(input$facetrowextrain ,"+", input$facetrowin, '~', input$facetcolin)
-      }  
-      if (input$facetrowextrain !="."&input$facetrowin =="."){
-        facets <- paste( input$facetrowextrain, '~', input$facetcolin)
-      }  
-      
-      if (input$facetcolextrain !="."){
-        facets <- paste( facets, "+",input$facetcolextrain)
-      }  
-      ASTABLE <- ifelse( input$facetordering=="table",TRUE,FALSE)
-      
-      if (facets != '. ~ .')
-        p <- p + facet_grid(facets,scales=input$facetscalesin,space=input$facetspace
-                            ,labeller=input$facetlabeller,margins=input$facetmargin,as.table=ASTABLE )
-      
-      if (facets != '. ~ .' & input$facetswitch!="" )
-        
-        p <- p + facet_grid(facets,scales=input$facetscalesin,space=input$facetspace,
-                            switch=input$facetswitch
-                            , labeller=input$facetlabeller,
-                            margins=input$facetmargin ,as.table=ASTABLE)
-      
-      if (facets != '. ~ .'&input$facetwrap) {
-        multiline <-  input$facetwrapmultiline
-        
-        p <- p + facet_wrap(    c(input$facetrowextrain ,input$facetrowin,input$facetcolin,input$facetcolextrain ) [
-          c(input$facetrowextrain ,input$facetrowin,input$facetcolin,input$facetcolextrain )!="."]
-          ,scales=input$facetscalesin,
-          labeller=label_wrap_gen(width = 25, multi_line = multiline),as.table=ASTABLE)
-        
-        if (input$facetwrap&input$customncolnrow) {
-          multiline <-  input$facetwrapmultiline
-          p <- p + facet_wrap(    c(input$facetrowextrain ,input$facetrowin,input$facetcolin,input$facetcolextrain ) [
-            c(input$facetrowextrain ,input$facetrowin,input$facetcolin,input$facetcolextrain )!="."]
-            ,scales=input$facetscalesin,ncol=input$wrapncol,nrow=input$wrapnrow,
-            labeller=label_wrap_gen(width = 25, multi_line = multiline ),as.table=ASTABLE)
+      facets <- paste(input$facetrowin,
+                      '+',
+                      input$facetrowextrain,
+                      '~',
+                      input$facetcolin,
+                      '+',
+                      input$facetcolextrain)
+
+      ASTABLE <- ifelse(input$facetordering == "table", TRUE, FALSE)
+      if (facets != '. + . ~ . + .' && !input$facetwrap) {
+        facets<- as.formula(facets)
+        facetswitch <-
+          if (input$facetswitch == "none")
+            NULL
+        else {
+          input$facetswitch
         }
+        p <-
+          p + facet_grid(
+            facets,
+            scales = input$facetscalesin,
+            space = input$facetspace,
+            switch = facetswitch,
+            labeller = input$facetlabeller,
+            margins = input$facetmargin ,
+            as.table = ASTABLE
+          )
       }
       
       
+      if (facets != '. + . ~ . + .' && input$facetwrap) {
+        multiline <-  input$facetwrapmultiline
+        wrapncol <-
+          if (is.na(input$wrapncol) |
+              is.null(input$wrapncol))
+            NULL
+        else {
+          input$wrapncol
+        }
+        wrapnrow <-
+          if (is.na(input$wrapnrow) |
+              is.null(input$wrapnrow))
+            NULL
+        else {
+          input$wrapnrow
+        }
+        
+        facetgridvariables <-
+          c(
+            input$facetcolin,
+            input$facetcolextrain,
+            input$facetrowin,
+            input$facetrowextrain
+          ) [c(
+            input$facetcolin,
+            input$facetcolextrain,
+            input$facetrowin,
+            input$facetrowextrain
+          ) != "."]
+        p <- p + facet_wrap(
+          facetgridvariables,
+          scales = input$facetscalesin,
+          ncol = input$wrapncol,
+          nrow = input$wrapnrow,
+          labeller = label_wrap_gen(width = 25, multi_line = multiline),
+          as.table = ASTABLE
+        )
+        
+      }
       
+      
+      if (input$yaxisscale=="logy"&& is.numeric(plotdata[,"yvalues"])&&input$yaxisformat=="default")
+        p <- p + scale_y_log10()
       if (input$yaxisscale=="logy"&& is.numeric(plotdata[,"yvalues"])&& input$yaxisformat=="logyformat")
         p <- p + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                                labels = trans_format("log10", math_format(10^.x)))
-      if (input$yaxisscale=="logy"&& is.numeric(plotdata[,"yvalues"])&&input$yaxisformat!="logyformat")
-        p <- p + scale_y_log10()
+      if (input$yaxisscale=="logy"&& is.numeric(plotdata[,"yvalues"])&&input$yaxisformat=="logyformat2")
+        p <- p + scale_y_log10(labels=prettyNum)
+
+      if (input$yaxisscale=="logy" && input$customyticks&&input$yaxisformat=="default") {
+        p <- p  + 
+          scale_y_log10(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                        minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+      }
       
-      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&& input$xaxisformat=="logxformat")
-        p <- p + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                               labels = trans_format("log10", math_format(10^.x)))
-      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&&input$xaxisformat!="logxformat")
-        p <- p + scale_x_log10()
+      if (input$yaxisscale=="logy" && input$customyticks && input$yaxisformat=="logyformat") {
+        p <- p  + 
+          scale_y_log10(labels = trans_format("log10", math_format(10^.x)),
+            breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                        minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+      }
+      if (input$yaxisscale=="logy" && input$customyticks && input$yaxisformat=="logyformat2") {
+        p <- p  + 
+          scale_y_log10(labels = prettyNum,
+                        breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                        minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+      }
+      
       
       
       if (input$yaxisscale=="lineary" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$yaxisformat=="scientificy")
         p <- p  + 
         scale_y_continuous(labels=comma )
-      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="scientificx")
-        p <- p  + 
-        scale_x_continuous(labels=comma )
       if (input$yaxisscale=="lineary" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$yaxisformat=="percenty")
         p <- p  + 
         scale_y_continuous(labels=percent )
-      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="percentx")
-        p <- p  + 
-        scale_x_continuous(labels=percent )
       
       
-      if (input$xaxisscale=="linearx" && input$customxticks) {
+      if (input$yaxisscale=="lineary" && input$customyticks && input$yaxisformat=="default") {
         p <- p  + 
-          scale_x_continuous(breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
-                             minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+          scale_y_continuous(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
       }
-      if (input$xaxisscale=="logx" && input$customxticks) {
+      
+      if (input$yaxisscale=="lineary" && input$customyticks && input$yaxisformat=="scientificy") {
+        p <- p  + 
+          scale_y_continuous(labels=comma,
+                             breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+      }
+      
+      if (input$yaxisscale=="lineary" && input$customyticks && input$yaxisformat=="percenty") {
+        p <- p  + 
+          scale_y_continuous(labels=percent,
+                             breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+      }
+
+      
+      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&&input$xaxisformat=="default")
+        p <- p + scale_x_log10()
+      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&& input$xaxisformat=="logxformat")
+        p <- p + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                               labels = trans_format("log10", math_format(10^.x)))
+      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&& input$xaxisformat=="logxformat2")
+        p <- p + scale_x_log10(labels = prettyNum)
+      
+      
+      
+      
+      if (input$xaxisscale=="logx" && input$customxticks && input$xaxisformat=="default") {
         p <- p  + 
           scale_x_log10(breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
                         minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
       }
       
-      if (input$yaxisscale=="lineary" && input$customyticks) {
+      if (input$xaxisscale=="logx" && input$customxticks && input$xaxisformat=="logxformat") {
         p <- p  + 
-          scale_y_continuous(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
-                             minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+          scale_x_log10(labels = trans_format("log10", math_format(10^.x)),
+                        breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                        minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
       }
-      if (input$yaxisscale=="logy" && input$customyticks) {
+      if (input$xaxisscale=="logx" && input$customxticks &&input$xaxisformat=="logxformat2" ) {
         p <- p  + 
-          scale_y_log10(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
-                        minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+          scale_x_log10(labels = prettyNum,
+                        breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                        minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
       }
+      
+      
+      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="scientificx")
+        p <- p  + 
+        scale_x_continuous(labels=comma )
+      
+      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="percentx")
+        p <- p  + 
+        scale_x_continuous(labels=percent )
+      
+      if (input$xaxisscale=="linearx" && input$customxticks && input$xaxisformat=="default") {
+        p <- p  + 
+          scale_x_continuous(
+                             breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+      }
+      if (input$xaxisscale=="linearx" && input$customxticks && input$xaxisformat=="scientificx") {
+        p <- p  + 
+          scale_x_continuous(labels=comma,
+                             breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+      }
+      if (input$xaxisscale=="linearx" && input$customxticks && input$xaxisformat=="percentx") {
+        p <- p  + 
+          scale_x_continuous(labels=percent,
+                             breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                             minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+      }
+      
+
+
       
       if (!is.null(input$y) & length(input$y) >= 2 & input$ylab=="" ){
         p <- p + ylab("Y variable(s)")
@@ -2610,18 +3096,18 @@ function(input, output, session) {
       
       if (input$customvline1)
         p <-    p+
-        geom_vline(xintercept=input$vline1)
+        geom_vline(xintercept=input$vline1,color=input$vlinecol1,linetype=input$vlinetype1,size=input$vlinesize1)
       if (input$customvline2)
         p <-    p+
-        geom_vline(xintercept=input$vline2)      
+        geom_vline(xintercept=input$vline2,color=input$vlinecol2,linetype=input$vlinetype2,size=input$vlinesize2)      
       
       if (input$customhline1)
         p <-    p+
-        geom_hline(yintercept=input$hline1)
-      
+        geom_hline(yintercept=input$hline1,color=input$hlinecol1,linetype=input$hlinetype1,size=input$hlinesize1)
+
       if (input$customhline2)
         p <-    p+
-        geom_hline(yintercept=input$hline2)     
+        geom_hline(yintercept=input$hline2,color=input$hlinecol2,linetype=input$hlinetype2,size=input$hlinesize2)     
       
       if (input$identityline)
         p <-    p+ geom_abline(intercept = 0, slope = 1)
@@ -2735,7 +3221,16 @@ function(input, output, session) {
       
       p <-  p+
         theme(panel.grid.major = element_line(colour = input$gridlinescol),
-              panel.grid.minor = element_line(colour = input$gridlinescol) )
+              panel.grid.minor = element_line(colour = input$gridlinescol),
+              strip.background.x = element_rect(fill=input$stripbackgroundfillx),
+              strip.background.y = element_rect(fill=input$stripbackgroundfilly),
+              strip.placement  = input$stripplacement,
+              strip.text.x =  element_text(size = input$striptextsizex),
+              strip.text.y =  element_text(size = input$striptextsizey),
+              panel.spacing.x = unit(input$panelspacingx, "lines"),
+              panel.spacing.y = unit(input$panelspacingy, "lines")
+              
+              )
 
       if (all(
          input$yaxiszoom=='noyzoom'&&
@@ -2756,8 +3251,7 @@ function(input, output, session) {
       }
 
       if (all(
-        input$xaxiszoom=='noxzoom' &&
-        !is.null(input$yaxiszoomin[1]) &&
+        input$xaxiszoom=='noxzoom'  &&
           !is.null(plotdata$yvalues) &&
           is.numeric(plotdata[,"yvalues"] ) &&
           input$facetscalesin!="free_y" &&
@@ -2768,15 +3262,22 @@ function(input, output, session) {
             coord_cartesian(ylim= c(input$loweryin,input$upperyin) )
         }
         if(input$yaxiszoom=="automaticyzoom"){
-          p <- p +
-            coord_cartesian(
-              ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2]))
+          
+            if(!is.null(input$yaxiszoomin[1]) ){
+              p <- p +
+                coord_cartesian(
+                  ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2])) 
+            } 
+          if(is.null(input$yaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(ylim= c(NA,NA)) 
+          } 
         }
 
       }
 
 
-      if (all(!is.null(input$xaxiszoomin[1])&&!is.null(input$yaxiszoomin[1])&&
+      if (all(!is.null(input$xaxiszoomin[1])&&
           is.numeric(plotdata[,input$x] ) && !is.null(plotdata$yvalues) &&
           is.numeric(plotdata[,"yvalues"]) &&
           input$facetscalesin!="free_x"&&input$facetscalesin!="free_y"&&
@@ -2789,9 +3290,17 @@ function(input, output, session) {
                             ylim= c(input$loweryin,input$upperyin)  )
         }
         if (input$xaxiszoom=="userxzoom"&&input$yaxiszoom=="automaticyzoom"){
-          p <- p +
-            coord_cartesian(xlim= c(input$lowerxin,input$upperxin),
-                            ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2])  )
+          if(!is.null(input$yaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(xlim= c(input$lowerxin,input$upperxin),
+                              ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2])  )
+            }
+          if(is.null(input$yaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(xlim= c(input$lowerxin,input$upperxin),
+                              ylim= c(NA,NA) )
+          }
+          
         }
         if (input$xaxiszoom=="automaticxzoom"&&input$yaxiszoom=="useryzoom"){
           p <- p +
@@ -2799,16 +3308,24 @@ function(input, output, session) {
                             ylim= c(input$loweryin,input$upperyin)  )
         }
         if (input$xaxiszoom=="automaticxzoom"&&input$yaxiszoom=="automaticyzoom"){
-          p <- p +
-            coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
-                            ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2])  )
+          if(!is.null(input$yaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
+                              ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2])  )
+             }
+          if(is.null(input$yaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
+                              ylim= c(NA,NA)  )
+          }
         }
       }
 
       if (input$showtargettext){
+        targettext <-  gsub("\\\\n", "\\\n", input$targettext)
         p <- p +
-          annotate("text", x=input$lowerxin, y=input$lowerytarget,
-                   label=input$targettext, col=input$targettextcol, hjust=0, vjust=1,size=input$targettextsize)
+          annotate("text", x=input$targettextxpos, y=input$targettextypos,
+                   label=targettext, col=input$targettextcol, hjust=input$targettexthjust, vjust=input$targettextvjust,size=input$targettextsize)
       }
       
       
@@ -2984,8 +3501,8 @@ function(input, output, session) {
   
   output$flipthelevels <- renderUI({
     df <-tabledata()
-    validate(       need(!is.null(df), "Please select a data set"))
-    if(!is.null(df) && input$dstatscolextrain!="."){
+    validate(need(!is.null(df), "Please select a data set"))
+    if(!is.null(df) && !is.null(input$dstatscolextrain) && input$dstatscolextrain!="."){
       checkboxInput('flipthelevelsin', 'Flip the Order of the Columns', value = FALSE)
     }
   })  
@@ -2997,7 +3514,8 @@ function(input, output, session) {
     )
     validate(need(!is.null(input$y), 
                   "No y variable(s) selected"))
-    
+    req(input$dstatscolextrain)
+
     tabledata <- df
     if (input$dstatscolextrain != ".") {
       tabledata <- tabledata[, c(input$x, input$dstatscolextrain, input$y)]
@@ -3044,9 +3562,25 @@ function(input, output, session) {
       "SD"                   = function(x) x$SD,
       "CV%"                  = function(x) x$CV,
       "Median"               = function(x) x$MEDIAN,
+      "q01"                  = function(x) sprintf("%s", x$q01),
+      "q02.5"                = function(x) sprintf("%s", x$q02.5),
+      "q05"                  = function(x) sprintf("%s", x$q05),
+      "q10"                  = function(x) sprintf("%s", x$q10),
+      "q25"                  = function(x) sprintf("%s", x$q25),
+      "q50"                  = function(x) sprintf("%s", x$q50),
+      "q75"                  = function(x) sprintf("%s", x$q75),
+      "q90"                  = function(x) sprintf("%s", x$q90),
+      "q95"                  = function(x) sprintf("%s", x$q95),
+      "q97.5"                = function(x) sprintf("%s", x$q97.5),
+      "q99"                  = function(x) sprintf("%s", x$q99),
       "Min"                  = function(x) x$MIN,
       "Max"                  = function(x) x$MAX,
       "IQR"                  = function(x) x$IQR,
+      "Q1"                  = function(x) x$Q1,      
+      "Q2"                  = function(x) x$Q2,
+      "Q3"                  = function(x) x$Q3,
+      "T1"                  = function(x) x$T1,
+      "T2"                  = function(x) x$T2,
       "Geo. Mean"            = function(x) x$GMEAN,
       "Geo. CV%"             = function(x) x$GCV,
       "Mean (SD)"            = function(x) sprintf("%s (%s)", x$MEAN, x$SD),
@@ -3055,6 +3589,7 @@ function(input, output, session) {
       "Mean (Median)"        = function(x) sprintf("%s (%s)", x$MEAN, x$MEDIAN),
       "[Min, Max]"           = function(x) sprintf("[%s, %s]", x$MIN, x$MAX),
       "Median [Min, Max]"    = function(x) sprintf("%s [%s, %s]", x$MEDIAN, x$MIN, x$MAX),
+      "Median [Q1, Q3]"      = function(x) sprintf("%s [%s, %s]", x$MEDIAN, x$Q1, x$Q3),
       "Median [IQR]"         = function(x) sprintf("%s [%s]", x$MEDIAN, x$IQR),
       "Geo. Mean (Geo. CV%)" = function(x) sprintf("%s (%s)", x$GMEAN, x$GCV))
     
@@ -3105,10 +3640,9 @@ function(input, output, session) {
       }
       formula <- as.formula(paste("~", paste(c(LHS, RHS), collapse=" | ")))
       overall <- if (input$table_incl_overall) "Overall" else FALSE
-      t <- capture.output(table1(formula, data=df, overall=overall,
+      t <- table1(formula, data=df, overall=overall,
                                  topclass=paste("Rtable1", input$table_style),
-                                 render.continuous=dstatsRenderCont(),
-                                 standalone=FALSE))
+                                 render.continuous=dstatsRenderCont())
       values$prevTable <- t
       t
     }

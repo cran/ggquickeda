@@ -1,0 +1,13 @@
+name: ggquickeda
+title: ggquickeda
+username: samer.mouksassi
+account: samer.mouksassi
+server: 34.218.129.70
+hostUrl: http://34.218.129.70/__api__
+appId: 1
+bundleId: 43
+url: http://34.218.129.70/content/1/
+when: 1532029872.93813
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: img/snapshot1.gif|img/snapshot2.gif|img/snapshot3.gif|img/snapshot4.1.png
