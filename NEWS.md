@@ -1,3 +1,18 @@
+# ggquickeda 0.1.4
+* custom labels with text, label, text_repel and label_repel
+* user can now add more custom colors up to 20
+* added user control to specify mid color of continuous color scales
+* added user control to specify strip text colour and more colourpicker background color
+* order stacked data by sd of value 
+* added smooth emax model via nls and parameter values
+* added parameter values for lm fit and made text size adjustable
+* viridis and custom continuous color scale
+* added possibility to divide multipe columns by a specified one (e.g. dose normalization)
+* "Treat as Categories:" now accepts character variables in addition to numeric.
+* "Treat as Numeric:" added to enable converting columns read as factors.
+* updated the docs for geom and stat_km stat_kmband stat_kmticks.
+
+
 # ggquickeda 0.1.3
 * UI and options improvements for KM (line sizes, transparency, ignore group and color), linetype mappping
 * changed default error in stat_kmbands, borrowed stairstepn from ggalt and applying zoo::na.locf to deal with na

@@ -466,7 +466,7 @@ function(input, output, session) {
     validate(       need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    MODEDF <- sapply(df, function(x) is.numeric(x))
+    MODEDF <- sapply(df, function(x) !is.factor(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     if (!is.null(input$catvarquantin)) {
       if (length(input$catvarquantin ) >=1) {
@@ -481,6 +481,8 @@ function(input, output, session) {
     selectInput('catvar2in',label = 'Treat as Categories:',choices=NAMESTOKEEP2,multiple=TRUE)
     
   })
+  
+
   
   output$catvar3 <- renderUI({
     df <-values$maindata
@@ -547,7 +549,7 @@ function(input, output, session) {
     if(!is.null(input$catvarin)&length(input$catvarin ) >=1) {
       for (i in 1:length(input$catvarin ) ) {
         varname<- input$catvarin[i]
-        df[,varname] <- cut(df[,varname],input$ncuts , include.lowest = TRUE, right = FALSE, ordered_result = TRUE)
+        df[,varname] <- cut(df[,varname],input$ncuts , include.lowest = TRUE, right = FALSE, ordered_result = FALSE)
         df[,varname]   <- as.factor( df[,varname])
       }
     }
@@ -603,15 +605,40 @@ function(input, output, session) {
       if(length(input$catvar2in ) >=1) {
         for (i in 1:length(input$catvar2in ) ) {
           varname<- input$catvar2in[i]
-          df[,varname]   <- as.factor( df[,varname])
+          df[,varname]   <- as.factor( as.character(df[,varname]))
         }
       }  
     }
     df
   })
   
-  recodedata3  <- reactive({
+  output$contvar <- renderUI({
+    df <-values$maindata
+    validate(       need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    MODEDF <- sapply(df, function(x) !is.numeric(x))
+    NAMESTOKEEP2<- names(df)  [ MODEDF ]
+    selectInput('contvarin',label = 'Treat as Numeric:',choices=NAMESTOKEEP2,multiple=TRUE)
+  })
+  outputOptions(output, "contvar", suspendWhenHidden=FALSE)
+  
+  makedatacont  <- reactive({
     df <- recodedata2()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$contvarin) ){
+      if(length(input$contvarin ) >=1) {
+        for (i in 1:length(input$contvarin ) ) {
+          varname<- input$contvarin[i]
+          df[,varname]   <- as.double( as.character(df[,varname]))
+        }
+      }
+    }
+    df
+  })
+
+  recodedata3  <- reactive({
+    df <- makedatacont()
     validate(       need(!is.null(df), "Please select a data set"))
     if (is.null(input$catvar3in)) return(NULL)
     if(input$catvar3in!="" && !is.null(input$xcutoffs)) {
@@ -1065,15 +1092,63 @@ function(input, output, session) {
     df
   })  
   
+  output$divideynum <- renderUI({
+    df <- rounddata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      items=names(df)
+      names(items)=items
+      MODEDF <- sapply(df, function(x) is.numeric(x))
+      NAMESTOKEEP2<- names(df)  [MODEDF]
+      selectizeInput(  "divideynumin", "Divide the Values by the specified column:", choices = NAMESTOKEEP2,multiple=TRUE,
+                       options = list(
+                         placeholder = 'Please select some variables',
+                         onInitialize = I('function() { this.setValue(""); }')
+                       )
+      )
+    }
+  })
+  
+  output$divideydenom <- renderUI({
+    df <- rounddata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      items=names(df)
+      names(items)=items
+      MODEDF <- sapply(df, function(x) !is.character(x) )
+      NAMESTOKEEP2<- names(df)  [MODEDF]
+      selectInput(  "divideydenomin", "Variable to divide by", choices = NAMESTOKEEP2,multiple=FALSE)
+    }
+  })
+  
+  outputOptions(output, "divideynum", suspendWhenHidden=FALSE)
+  outputOptions(output, "divideydenom", suspendWhenHidden=FALSE)
+  
+  
+  dividedata <- reactive({
+    df <- rounddata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$divideynumin)&&length(input$divideynumin ) >=1 &&
+       !is.null(input$divideydenomin)) {
+      for (i in 1:length(input$roundvarin ) ) {
+        varname<- input$divideynumin[i]
+        dosname<- input$divideydenomin
+        df[,varname]   <-  df[,varname] /as.numeric(as.character(df[,dosname]))
+      }
+    }
+    df
+  })
+  
+  
   
   tabledata <- reactive({
-    df <- rounddata() 
+    df <- dividedata() 
     df
   })
   
   stackdata <- reactive({
     
-    df <- rounddata()
+    df <- dividedata()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       validate(  need(!is.element(input$x,input$y) ,
@@ -1168,6 +1243,10 @@ function(input, output, session) {
       if(input$functionordervariable=="N" )  {
         df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) length(x[!is.na(x)]))
       }
+      if(input$functionordervariable=="SD" )  {
+        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) sd(x[!is.na(x)]))
+      }
+      
       if(input$reverseorder )  {
         df[,varname] <- factor( df[,varname], levels=rev(levels( df[,varname])))
         
@@ -1764,8 +1843,14 @@ function(input, output, session) {
   })
   
   output$userdefinedcolor <- renderUI({ 
-    lev <- 1:10
-    cols <- tableau10
+    req(input$nusercol)
+    lev <- 1:input$nusercol
+    if( length(lev) > 10 ){
+      cols <- c(tableau20)
+    }
+    if( length(lev) <= 10 ){
+      cols <- c(tableau10)
+    }
     if(input$themecolorswitcher=="themeuser"){
       lapply(seq_along(lev), function(i) {
         colourInput(inputId = paste0("col", lev[i]),label = paste0("Choose color", lev[i]), value = cols[i]
@@ -1775,9 +1860,37 @@ function(input, output, session) {
     
   })
   
+  output$userdefinedcontcolor <- renderUI({ 
+      if(input$themecontcolorswitcher=="themeuser"){
+      list(
+        colourpicker::colourInput(
+          "colcont1",
+          "Starting Color",
+          value = muted("red"),
+          showColour = "both",
+          allowTransparent = FALSE,returnName = TRUE),
+        
+        
+        colourpicker::colourInput(
+          "colcont2",
+          "Ending Color",
+          value =muted("blue"),
+          showColour = "both",
+          allowTransparent = FALSE,returnName = TRUE)
+              )
+      }
+    })
+  
+  
   observeEvent(input$userdefinedcolorreset, {
-    lev <- 1:10
-    cols <- tableau10
+    req(input$nusercol)
+    lev <- 1:input$nusercol
+    if( length(lev) > 10 ){
+      cols <- c(tableau20)
+    }
+    if( length(lev) <= 10 ){
+      cols <- c(tableau10)
+    }
     lapply(seq_along(lev), function(i) {
       do.call(what = "updateColourInput",
               args = list(
@@ -1790,8 +1903,9 @@ function(input, output, session) {
   })
   
   observeEvent(input$userdefinedcolorhighlight, {
-    lev <- 1:10
-    cols <- c("#D62728",rep("lightgray",9))
+    req(input$nusercol)
+    lev <- 1:input$nusercol
+    cols <- c("#D62728",rep("lightgray",input$nusercol-1))
     lapply(seq_along(lev), function(i) {
       do.call(what = "updateColourInput",
               args = list(
@@ -1801,6 +1915,19 @@ function(input, output, session) {
               )
       )
     })
+  })
+  
+  observeEvent(input$userdefinedcontcolorreset, {
+    cols <- c(muted("red"),muted("blue"))
+    updateColourInput(session = session,
+                      inputId = paste0("colcont1"),
+                      value = cols[1]
+                      )
+                      
+    updateColourInput(session = session,
+                      inputId = paste0("colcont2"),
+                      value = cols[2]
+    )
   })
   
   observe({
@@ -1846,18 +1973,56 @@ function(input, output, session) {
     validate(need(!is.null(plotdata), "Please select a data set") )
     
     # Fix the colour palettes
-    if (input$themecontcolorswitcher=="RedWhiteBlue"){
+    #continuous
+    if (input$themecontcolorswitcher=="themeggplot"){
       scale_colour_continuous<- function(...) 
-        scale_colour_gradient2(..., low = muted("red"), mid = "white",
+        scale_colour_gradient(...,guide = "colourbar")
+      
+      scale_fill_continuous<- function(...) 
+        scale_fill_gradient(...,guide = "colourbar")
+    }
+    
+    if (input$themecontcolorswitcher=="RedWhiteBlue"){
+      
+      scale_colour_continuous<- function(...) 
+        scale_colour_gradient2(..., low = muted("red"), mid = input$midcolor,
+                               high = muted("blue"), midpoint = input$colormidpoint, space = "Lab",
+                               na.value = "grey50", guide = "colourbar")
+      
+      scale_fill_continuous<- function(...) 
+        scale_fill_gradient2(..., low = muted("red"), mid = input$midcolor,
                                high = muted("blue"), midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
     }
     if (input$themecontcolorswitcher=="RedWhiteGreen"){
-      scale_colour_continuous<- function(...) 
-        scale_colour_gradient2(..., low = muted("red"), mid = "white",
+      
+      scale_colour_continuous <- function(...) 
+        scale_colour_gradient2(..., low = muted("red"), mid = input$midcolor,
                                high = muted("darkgreen"), midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
+      
+      scale_fill_continuous <- function(...) 
+        scale_fill_gradient2(..., low = muted("red"), mid = input$midcolor,
+                               high = muted("darkgreen"), midpoint = input$colormidpoint, space = "Lab",
+                               na.value = "grey50", guide = "colourbar")
+      
     }
+    
+    if (input$themecontcolorswitcher=="themeuser"){
+      
+      scale_colour_continuous <- function(...) 
+        scale_colour_gradient2(..., low = input$colcont1 , mid = input$midcolor,
+                               high =     input$colcont2, midpoint = input$colormidpoint, space = "Lab",
+                               na.value = "grey50", guide = "colourbar")
+      
+      scale_fill_continuous <- function(...) 
+        scale_fill_gradient2(..., low = input$colcont1, mid = input$midcolor,
+                             high = input$colcont2, midpoint = input$colormidpoint, space = "Lab",
+                             na.value = "grey50", guide = "colourbar")
+      
+    }
+    
+    #discrete
     if (input$themecolorswitcher=="themetableau10"){
       scale_colour_discrete <- function(...) 
         scale_colour_manual(..., values = tableau10,drop=!input$themecolordrop)
@@ -1865,7 +2030,7 @@ function(input, output, session) {
         scale_fill_manual(..., values = tableau10,drop=!input$themecolordrop)
     }
     if (input$themecolorswitcher=="themeuser"){
-      cols <- paste0("c(", paste0("input$col", 1:10, collapse = ", "), ")")
+      cols <- paste0("c(", paste0("input$col", 1:input$nusercol, collapse = ", "), ")")
       cols <- eval(parse(text = cols))
       scale_colour_discrete <- function(...) 
         scale_colour_manual(..., values = cols,drop=!input$themecolordrop)
@@ -2802,209 +2967,355 @@ function(input, output, session) {
           familyargument<- "poisson"
           methodsargument<- list(family = familyargument) 
         }
+        
+        if(input$smoothmethod=="emax") {
+          
+          if(! input$customemaxstart) methodsargument<- list(formula = y ~ SSmicmen(x, Vm, K))
+          if( input$customemaxstart)  methodsargument<- list(formula = y ~ SSmicmen(x, Vm, K),start=c(Vm =input$emaxstart , K =input$ec50start))
+        }
+
         smoothmethodargument<- ifelse(input$smoothmethod%in%c("glm1","glm2"),
                                       "glm",input$smoothmethod)
         spanplot <- input$loessens
         levelsmooth<- input$smoothselevel
+        colsmooth <- input$colsmooth
+        if (input$weightin == 'None') aesweight <- 1L
+        if (input$weightin != 'None') aesweight <- as.symbol(input$weightin)
+        
         if ( input$ignoregroup) {
-          if (!input$smoothignorecol) {
-            if (input$Smooth=="Smooth"&& input$weightin == 'None')
+          if (!input$smoothignorecol && !input$smoothmethod=="emax") {
+            if (input$Smooth=="Smooth"){
               p <- p + geom_line(stat="smooth",alpha=smoothlinealpha,
                                  method=smoothmethodargument,
                                  method.args = methodsargument,
-                                 size=smoothlinesize,se=F,span=spanplot,aes(group=NULL))
+                                 size=smoothlinesize,se=F,span=spanplot,aes(group=NULL,weight=!!aesweight))
+            }
             
-            if (input$Smooth=="Smooth and SE"&& input$weightin == 'None')
+            if (input$Smooth=="Smooth and SE"){
               p <- p + 
                 geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
                             method=smoothmethodargument,level=levelsmooth,
                             method.args = methodsargument,
-                            size=smoothlinesize,se=T,span=spanplot,aes(group=NULL))+
+                            size=smoothlinesize,se=T,span=spanplot,aes(group=NULL,weight=!!aesweight))+
                 geom_line(stat="smooth",alpha=smoothlinealpha,
                           method=smoothmethodargument,level=levelsmooth,
                           method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot,aes(group=NULL))
+                          size=smoothlinesize,se=T,span=spanplot,aes(group=NULL,weight=!!aesweight))
+            }
+             if (input$smoothmethod=="lm"&&input$showadjrsquared){
+               p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         aes(label = paste("R[adj]^2==",
+                                                           signif(..adj.r.squared.., digits = 2), sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                         show.legend = FALSE,parse=TRUE)
+
+
+            }
+            if (input$smoothmethod=="lm"&&input$showslopepvalue){
+               p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         aes(label = paste("Slope P-value = ",
+                                                           signif(..p.value.., digits = 3), sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                         show.legend = FALSE)
+            }
+            if (input$smoothmethod=="lm" && input$showlmequation){
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",size=input$smoothtextsize,
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x = Inf ,label.y = -Inf,
+                                         aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
+                                                                   "%+-%", signif(..x_se.., digits = 2),
+                                                                   "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
+                                                                   "%+-%", signif(..Intercept_se.., digits = 2),
+                                                                   sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                       parse = TRUE, show.legend = FALSE)
+            }
             
-            if (input$Smooth=="Smooth"&& input$weightin != 'None')
+
+            
+          }#!input$smoothignorecol && !input$smoothmethod=="emax"
+          
+          if (!input$smoothignorecol&& input$smoothmethod=="emax") {
+
               p <- p + geom_line(stat="smooth",alpha=smoothlinealpha,
-                                 method=smoothmethodargument,
+                                 method='nls',
                                  method.args = methodsargument,
-                                 size=smoothlinesize,se=F,span=spanplot,aes(group=NULL))+  
-                aes_string(weight=input$weightin)
-            
-            if (input$Smooth=="Smooth and SE" && input$weightin != 'None')
-              p <- p +       geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
-                                         method=smoothmethodargument,level=levelsmooth,
+                                 size=smoothlinesize,se=F,aes(group=NULL,weight=!!aesweight))
+              if(input$shownlsparams){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls",size=input$smoothtextsize, 
                                          method.args = methodsargument,
-                                         size=smoothlinesize,se=T,span=spanplot,aes(group=NULL))+
-                geom_line(stat="smooth",alpha=smoothlinealpha,
-                          method=smoothmethodargument,level=levelsmooth,
-                          method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot,aes(group=NULL))+
-                aes_string(weight=input$weightin)
-          }
-          if (input$smoothignorecol) {
-            colsmooth <- input$colsmooth
+                                         label.x = "right",
+                                         label.y = "bottom",
+                                         aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                           "%+-%", signif(..Vm_se.., digits = 2),
+                                                           "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                           "%+-%", signif(..K_se.., digits = 2),
+                                                           sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                         parse = TRUE)
+              }
+              
+            
+      
+            }#!input$smoothignorecol&& input$smoothmethod=="emax"
+          
+          if (input$smoothignorecol && !input$smoothmethod=="emax") {
+            
             if (input$Smooth=="Smooth")
               p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
                                   method=smoothmethodargument,
                                   method.args = methodsargument,
-                                  size=smoothlinesize,se=F,span=spanplot,col=colsmooth,aes(group=NULL))
+                                  size=smoothlinesize,se=F,span=spanplot,col=colsmooth,aes(group=NULL,weight=!!aesweight))
             
             if (input$Smooth=="Smooth and SE")
               p <- p + geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
                                    method=smoothmethodargument,level=levelsmooth,
                                    method.args = methodsargument,
-                                   size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL))+
+                                   size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL,weight=!!aesweight))+
                 geom_line(stat="smooth",alpha=smoothlinealpha,
                           method=smoothmethodargument,level=levelsmooth,
                           method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL))
+                          size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL,weight=!!aesweight))
+
+            if (input$smoothmethod=="lm"&&input$showadjrsquared){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         aes(label = paste("R[adj]^2==",
+                                                           signif(..adj.r.squared.., digits = 2), sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                         show.legend = FALSE,parse=TRUE)
+
+
+            }
+            if (input$smoothmethod=="lm"&&input$showslopepvalue){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm", col=colsmooth,size=input$smoothtextsize,
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=Inf,
+                                         aes(label = paste("Slope P-value = ",
+                                                           signif(..p.value.., digits = 3), sep = ""),
+                                             group=NULL,weight=!!aesweight),
+                                         show.legend = FALSE)
+            }
+            if (input$smoothmethod=="lm" && input$showlmequation){
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,size=input$smoothtextsize,
+                                             method.args = list(formula = y ~ x),
+                                             geom = "text_repel",segment.color=NA,direction="y",
+                                             label.x = Inf ,label.y = -Inf,
+                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
+                                                               "%+-%", signif(..x_se.., digits = 2),
+                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
+                                                               "%+-%", signif(..Intercept_se.., digits = 2),
+                                                               sep = ""),
+                                                 group=NULL,weight=!!aesweight),
+                                             parse = TRUE, show.legend = FALSE)
+            }
             
-            if (input$Smooth=="Smooth"&& input$weightin != 'None')
-              p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
-                                  method=smoothmethodargument,
-                                  method.args = methodsargument,
-                                  size=smoothlinesize,se=F,span=spanplot,col=colsmooth,aes(group=NULL))+  
-                aes_string(weight=input$weightin)
-            
-            if (input$Smooth=="Smooth and SE"& input$weightin != 'None')
-              p <- p +   geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
-                                     method=smoothmethodargument,level=levelsmooth,
-                                     method.args = methodsargument,
-                                     size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL))+
-                geom_line(stat="smooth",alpha=smoothlinealpha,
-                          method=smoothmethodargument,level=levelsmooth,
-                          method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot,col=colsmooth,aes(group=NULL))+  
-                aes_string(weight=input$weightin)
-          }
+          }#input$smoothignorecol && !input$smoothmethod=="emax"
+
+          if (input$smoothignorecol&& input$smoothmethod=="emax") {
+
+              p <- p + geom_line(stat="smooth",alpha=smoothlinealpha,
+                                 method='nls',
+                                 method.args = methodsargument,
+                                 size=smoothlinesize,se=F,col=colsmooth,aes(group=NULL,weight=!!aesweight))
+              if(input$shownlsparams){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
+                                               method.args = methodsargument,
+                                               label.x = "right",
+                                               label.y = "bottom",
+                                               aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                                 "%+-%", signif(..Vm_se.., digits = 2),
+                                                                 "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                                 "%+-%", signif(..K_se.., digits = 2),
+                                                                 sep = ""),
+                                                   group=NULL,weight=!!aesweight),
+                                               parse = TRUE)
+              }
+
+          }#input$smoothignorecol && !input$smoothmethod=="emax"
           
-        }
+        }#smooth ignore group
         
         if ( !input$ignoregroup) {
-          if (!input$smoothignorecol) {
-            if (input$Smooth=="Smooth" && input$weightin == 'None')
-              p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
+          if (!input$smoothignorecol&& !input$smoothmethod=="emax") {
+            if (input$Smooth=="Smooth" )
+              p <- p +  geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
                                   method=smoothmethodargument,
                                   method.args = methodsargument,
                                   size=smoothlinesize,se=F,span=spanplot)
             
-            if (input$Smooth=="Smooth and SE" && input$weightin == 'None')
-              p <- p + geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
+            if (input$Smooth=="Smooth and SE")
+              p <- p + geom_ribbon(aes(weight=!!aesweight),stat="smooth",alpha=smoothCItransparency,linetype=0,
                                    method=smoothmethodargument,level=levelsmooth,
                                    method.args = methodsargument,
                                    size=smoothlinesize,se=T,span=spanplot)+  
-                geom_line(stat="smooth",alpha=smoothlinealpha,
+                geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
                           method=smoothmethodargument,level=levelsmooth,
                           method.args = methodsargument,
                           size=smoothlinesize,se=T,span=spanplot)
+        
+          
+            if (input$smoothmethod=="lm"&&input$showadjrsquared){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         aes(label = paste("R[adj]^2==",
+                                                           signif(..adj.r.squared.., digits = 2), sep = ""),
+                                             weight=!!aesweight),
+                                         show.legend = FALSE,parse=TRUE)
+              
+              
+            }
+            if (input$smoothmethod=="lm"&&input$showslopepvalue){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         aes(label = paste("Slope P-value = ",
+                                                           signif(..p.value.., digits = 3), sep = ""),
+                                             weight=!!aesweight),
+                                         show.legend = FALSE)
+            }
             
-            if (input$Smooth=="Smooth" && input$weightin != 'None')
-              p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
-                                  method=smoothmethodargument,
-                                  method.args = methodsargument,
-                                  size=smoothlinesize,se=F,span=spanplot)+  
-                aes_string(weight=input$weightin)
+            if (input$smoothmethod=="lm" && input$showlmequation){
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",size=input$smoothtextsize,
+                                             method.args = list(formula = y ~ x),
+                                             geom = "text_repel",segment.color=NA,direction="y",
+                                             label.x = Inf ,label.y = -Inf,
+                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
+                                                               "%+-%", signif(..x_se.., digits = 2),
+                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
+                                                               "%+-%", signif(..Intercept_se.., digits = 2),
+                                                               sep = ""),
+                                                 weight=!!aesweight),
+                                             parse = TRUE, show.legend = FALSE)
+            }
             
-            if (input$Smooth=="Smooth and SE" && input$weightin != 'None')
-              p <- p + geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
-                                   method=smoothmethodargument,level=levelsmooth,
-                                   method.args = methodsargument,
-                                   size=smoothlinesize,se=T,span=spanplot)+
-                geom_line(stat="smooth",alpha=smoothlinealpha,
-                          method=smoothmethodargument,level=levelsmooth,
-                          method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot)+  
-                aes_string(weight=input$weightin)
+            
+            
           }
-          if (input$smoothignorecol) {
-            colsmooth <- input$colsmooth
-            if (input$Smooth=="Smooth" && input$weightin == 'None')
-              p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
+          if (!input$smoothignorecol&& input$smoothmethod=="emax") {
+           
+              p <- p + geom_line(aes(weight=!!aesweight), stat="smooth",alpha=smoothlinealpha,
+                                 method='nls',
+                                 method.args = methodsargument,
+                                 size=smoothlinesize,se=F)
+              if(input$shownlsparams){
+                p <- p +
+                  ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, 
+                                         method.args = methodsargument,
+                                         label.x = "right",
+                                         label.y = "bottom",
+                                         aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                           "%+-%", signif(..Vm_se.., digits = 2),
+                                                           "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                           "%+-%", signif(..K_se.., digits = 2),
+                                                           sep = ""),
+                                             weight=!!aesweight),
+                                         parse = TRUE)
+              }
+
+            }
+          
+          if (input$smoothignorecol&& !input$smoothmethod=="emax") {
+            if (input$Smooth=="Smooth" )
+              p <- p +  geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
                                   method=smoothmethodargument,
                                   method.args = methodsargument,
                                   size=smoothlinesize,se=F,span=spanplot,col=colsmooth)
             
-            if (input$Smooth=="Smooth and SE" && input$weightin == 'None')
-              p <- p + geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
+            if (input$Smooth=="Smooth and SE" )
+              p <- p + geom_ribbon(aes(weight=!!aesweight),stat="smooth",alpha=smoothCItransparency,linetype=0,
                                    method=smoothmethodargument,level=levelsmooth,
                                    method.args = methodsargument,
                                    size=smoothlinesize,se=T,span=spanplot,col=colsmooth)+
-                geom_line(stat="smooth",alpha=smoothlinealpha,
+                geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
                           method=smoothmethodargument,level=levelsmooth,
                           method.args = methodsargument,
                           size=smoothlinesize,se=T,span=spanplot,col=colsmooth)
             
-            if (input$Smooth=="Smooth" && input$weightin != 'None')
-              p <- p +  geom_line(stat="smooth",alpha=smoothlinealpha,
-                                  method=smoothmethodargument,
-                                  method.args = methodsargument,
-                                  size=smoothlinesize,se=F,span=spanplot,col=colsmooth)+  
-                aes_string(weight=input$weightin)
+
+            if (input$smoothmethod=="lm"&&input$showadjrsquared){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         aes(label = paste("R[adj]^2==",
+                                                           signif(..adj.r.squared.., digits = 2), sep = ""),
+                                             weight=!!aesweight),
+                                         show.legend = FALSE,parse=TRUE)
+              
+              
+            }
+            if (input$smoothmethod=="lm"&&input$showslopepvalue){
+              p <- p+
+                ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
+                                         method.args = list(formula = y ~ x),
+                                         geom = "text_repel",segment.color=NA,direction="y",
+                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         aes(label = paste("Slope P-value = ",
+                                                           signif(..p.value.., digits = 3), sep = ""),
+                                             weight=!!aesweight),
+                                         show.legend = FALSE)
+            }
             
-            if (input$Smooth=="Smooth and SE" && input$weightin != 'None')
-              p <- p + geom_ribbon(stat="smooth",alpha=smoothCItransparency,linetype=0,
-                                   method=smoothmethodargument,level=levelsmooth,
-                                   method.args = methodsargument,
-                                   size=smoothlinesize,se=T,span=spanplot,col=colsmooth)+  
-                geom_line(stat="smooth",alpha=smoothlinealpha,
-                          method=smoothmethodargument,level=levelsmooth,
-                          method.args = methodsargument,
-                          size=smoothlinesize,se=T,span=spanplot,col=colsmooth)+  
-                aes_string(weight=input$weightin)
+            if (input$smoothmethod=="lm" && input$showlmequation){
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,size=input$smoothtextsize,
+                                             method.args = list(formula = y ~ x),
+                                             geom = "text_repel",segment.color=NA,direction="y",
+                                             label.x = Inf ,label.y = -Inf,
+                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
+                                                               "%+-%", signif(..x_se.., digits = 2),
+                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
+                                                               "%+-%", signif(..Intercept_se.., digits = 2),
+                                                               sep = ""),weight=!!aesweight),
+                                             parse = TRUE, show.legend = FALSE)
+            }
+            
           }
+          if (input$smoothignorecol&& input$smoothmethod=="emax") {
           
-        }
-        if (input$smoothmethod=="lm"&&input$showslopepvalue&&!input$showadjrsquared){
-          p <- p+
-            ggpmisc::stat_fit_glance(method = "lm", 
-                                     method.args = list(formula = y ~ x),
-                                     geom = "text_repel",segment.color=NA,direction="y",
-                                     label.x=-Inf ,label.y=Inf,size=3.88,
-                                     aes(label = paste("Slope P-value = ",
-                                                       signif(..p.value.., digits = 3), sep = "")),
-                                     show.legend = FALSE)
-          
-          
-        }
-        if (input$smoothmethod=="lm"&&input$showadjrsquared&&!input$showslopepvalue){
-          p <- p+
-            ggpmisc::stat_fit_glance(method = "lm", 
-                                     method.args = list(formula = y ~ x),
-                                     geom = "text_repel",segment.color=NA,direction="y",
-                                     label.x=-Inf ,label.y=-Inf,size=3.88,
-                                     aes(label = paste("R[adj]^2==",
-                                                       signif(..adj.r.squared.., digits = 2), sep = "")),
-                                     show.legend = FALSE,parse=TRUE)
-          
-          
-        }
-        if (input$smoothmethod=="lm"&&input$showslopepvalue&&input$showadjrsquared){
-          p <- p+
-            ggpmisc::stat_fit_glance(method = "lm", 
-                                     method.args = list(formula = y ~ x),
-                                     geom = "text_repel",segment.color=NA,direction="y",
-                                     label.x=-Inf ,label.y=Inf,size=3.88,
-                                     aes(label = paste("Slope P-value = ",
-                                                       signif(..p.value.., digits = 3), sep = "")),
-                                     show.legend = FALSE)
-          
-          p <- p+
-            ggpmisc::stat_fit_glance(method = "lm", 
-                                     method.args = list(formula = y ~ x),
-                                     geom = "text_repel",segment.color=NA,direction="y",
-                                     #label.x.npc = "left", label.y.npc = "bottom",
-                                     label.x=-Inf ,label.y=-Inf,size=3.88,
-                                     aes(label = paste("R[adj]^2==",
-                                                       signif(..adj.r.squared.., digits = 2), sep = "")),
-                                     show.legend = FALSE,parse=TRUE)
-        }
-        
-        
-        
-        ###### smooth Section END
-      }
+              p <- p + geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
+                                 method='nls',
+                                 method.args = methodsargument,
+                                 size=smoothlinesize,se=F,col=colsmooth)
+              if(input$shownlsparams){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
+                                               method.args = methodsargument,
+                                               label.x = "right",
+                                               label.y = "bottom",
+                                               aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                                 "%+-%", signif(..Vm_se.., digits = 2),
+                                                                 "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                                 "%+-%", signif(..K_se.., digits = 2),
+                                                                 sep = ""),
+                                                   weight=!!aesweight),
+                                               parse = TRUE)
+            }
+            
+}
+          }#smooth ignore group
+
+      }# if smooth not none
+      ###### smooth Section END
       
       
       ###### Median PI section  START  
@@ -3626,53 +3937,57 @@ function(input, output, session) {
           if(!input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
               p <- p + stat_identity(data=plotdata, geom=input$geomlabel,show.legend = input$customlabellegend,
-                                     size=input$labelsize)
+                                     size=input$labelsize, seed = 1234)
             }
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,geom=input$geomlabel, show.legend = input$customlabellegend)
+              p <- p + stat_identity(data=plotdata,geom=input$geomlabel, show.legend = input$customlabellegend, seed = 1234)
             } 
           }#do notignoregroup 
           
           if(input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
               p <- p + stat_identity(data=plotdata,aes(group=NULL), geom=input$geomlabel, show.legend = input$customlabellegend,
-                                     size=input$labelsize)
+                                     size=input$labelsize, seed = 1234)
             }
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL),geom=input$geomlabel, show.legend = input$customlabellegend)
+              p <- p + stat_identity(data=plotdata,aes(group=NULL),geom=input$geomlabel,
+                                     show.legend = input$customlabellegend, seed = 1234)
               
             }
             
           }#ignoregroup   
           
-        }#do not corrignorecol
+        }#do not labelignorecol
         
         if(input$customlabelignorecol ) {
           if(!input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
               p <- p + stat_identity(data=plotdata, color=input$customlabelcol ,geom=input$geomlabel, show.legend = input$customlabellegend,
-                                     size=input$labelsize)
+                                     size=input$labelsize, seed = 1234)
               
             }
             if(!input$labelignoresize){
-              p <- p  + stat_identity(data=plotdata, color=input$customlabelcol ,geom=input$geomlabel, show.legend = input$customlabellegend)
+              p <- p  + stat_identity(data=plotdata, color=input$customlabelcol ,geom=input$geomlabel,
+                                      show.legend = input$customlabellegend, seed = 1234)
               
             }
           }#do notignoregroup 
           
           if(input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel, show.legend = input$customlabellegend,
-                                     size=input$labelsize)
+              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel,
+                                     show.legend = input$customlabellegend,
+                                     size=input$labelsize, seed = 1234)
             }
             
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel, show.legend = input$customlabellegend )                
+              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel,
+                                     show.legend = input$customlabellegend, seed = 1234 )                
             }
             
           }#ignoregroup   
           
-        }# corrignorecol
+        }# label ignorecol
         
       }# addcustom label
       #### data label END
@@ -3737,7 +4052,12 @@ function(input, output, session) {
           
           if (input$KM=="KM/CI") {
             p <- p +
-              stat_kmband(alpha=input$KMCItransparency,conf.int = input$KMCI,trans=input$KMtrans,geom="ribbon",linetype=0)
+              stat_kmband(
+                alpha=input$KMCItransparency,
+                          conf.int = input$KMCI,
+                          trans=input$KMtrans,
+                          geom="ribbon",
+                          linetype=0)
           }
           
           
@@ -4230,9 +4550,15 @@ function(input, output, session) {
           p <-  p + scale_colour_hue(drop=!input$themecolordrop)
         }
         
-        if (input$themecontcolorswitcher=="themeggplot"&&is.numeric(plotdata[,input$colorin])){
-          p <-  p + scale_colour_gradient2(midpoint = input$colormidpoint)
+
+        if (input$themecolorswitcher=="themeviridis" && !is.numeric(plotdata[,input$colorin])){
+          p <-  p + scale_colour_viridis_d(drop=!input$themecolordrop)
         }
+        
+        if (input$themecontcolorswitcher=="themeviridis" && is.numeric(plotdata[,input$colorin])){
+          p <-  p + scale_colour_viridis_c()
+        }
+        
       }
       
       
@@ -4242,16 +4568,22 @@ function(input, output, session) {
           
         }
         
-        if (input$themecontcolorswitcher=="themeggplot"&&is.numeric(plotdata[,input$fillin])){
-          p <-  p + scale_fill_gradient2(midpoint = input$colormidpoint)
+
+        if (input$themecolorswitcher=="themeviridis"&&!is.numeric(plotdata[,input$fillin])){
+          p <-  p + scale_fill_viridis_d(drop=!input$themecolordrop)
         }
+        
+        if (input$themecontcolorswitcher=="themeviridis"&&is.numeric(plotdata[,input$fillin])){
+          p <-  p + scale_fill_viridis_c()
+        }
+        
       }
       
       
       if(input$pointsizein!="None"){
         
         if(!input$scalesizearea&&is.numeric(plotdata[,input$pointsizein])){
-          p <- p +  scale_size(range =c(input$scalesizearearange1[1], input$scalesizearearange1[2]))   }   
+          p <- p +  scale_size(range = c(input$scalesizearearange1[1], input$scalesizearearange1[2]))   }   
         if(input$scalesizearea&&is.numeric(plotdata[,input$pointsizein])){
           p <- p +  scale_size_area(max_size =  input$scalesizearearange2[1])   }
         
@@ -4420,29 +4752,43 @@ function(input, output, session) {
         axis.title.x=element_blank())
     }
     
-    if (input$rotatexticks ){
+    if (!input$rmxaxistickslabels && input$rotatexticks  ){
+      if (input$xlabelsize <= 0) {
+        x.axis.text <- ggplot2::element_blank()
+      } else {
+        x.axis.text <- ggplot2::element_text(size = input$xlabelsize,
+                                             angle = input$xticksrotateangle,
+                                             hjust = input$xtickshjust,
+                                             vjust = input$xticksvjust)
+      }
       p <-  p+
-        theme(axis.text.x = element_text(angle = input$xticksrotateangle,
-                                         hjust = input$xtickshjust,
-                                         vjust = input$xticksvjust) )
+        theme(axis.text.x = x.axis.text )
       
     }
-    if (input$rotateyticks ){
+    if (!input$rmyaxistickslabels && input$rotateyticks){
+      if (input$xlabelsize <= 0) {
+        y.axis.text <- ggplot2::element_blank()
+      } else {
+        y.axis.text <- ggplot2::element_text(size = input$ylabelsize,
+                                             angle = input$yticksrotateangle,
+                                             hjust = input$ytickshjust,
+                                             vjust = input$yticksvjust)
+      }
+      
       p <-  p+
-        theme(axis.text.y = element_text(angle = input$yticksrotateangle,
-                                         hjust = input$ytickshjust,
-                                         vjust = input$yticksvjust) )                              
-    }    
-    
+        theme(axis.text.y = y.axis.text )                              
+    }  
     if (input$striptextsizex <= 0) {
       x.strip.text <- ggplot2::element_blank()
     } else {
-      x.strip.text <- ggplot2::element_text(size = input$striptextsizex)
+      x.strip.text <- ggplot2::element_text(size = input$striptextsizex,
+                                            colour=input$striptextcolourx)
     }
     if (input$striptextsizey <= 0) {
       y.strip.text <- ggplot2::element_blank()
     } else {
-      y.strip.text <- ggplot2::element_text(size = input$striptextsizey)
+      y.strip.text <- ggplot2::element_text(size = input$striptextsizey,
+                                            colour=input$striptextcoloury)
     }
     
     p <-  p+

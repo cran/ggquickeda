@@ -1,7 +1,7 @@
 Package: ggquickeda
 Title: Quickly Explore Your Data Using 'ggplot2' and 'table1' Summary
         Tables
-Version: 0.1.3
+Version: 0.1.4
 Authors@R: c(
     person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
       role = c("aut", "cre"),comment = c(ORCID = "https://orcid.org/0000-0002-7152-6654")),
@@ -31,11 +31,11 @@ LazyData: true
 VignetteBuilder: knitr
 RoxygenNote: 6.1.1
 NeedsCompilation: no
-Packaged: 2019-04-10 11:43:44 UTC; smouksas
+Packaged: 2019-09-03 13:00:13 UTC; smouksas
 Author: Samer Mouksassi [aut, cre] (<https://orcid.org/0000-0002-7152-6654>),
   Dean Attali [aut],
   Benjamin Rich [aut] (provided summary stats tables tab code),
   Michael Sachs [aut] (provided ggkm code)
 Maintainer: Samer Mouksassi <samermouksassi@gmail.com>
 Repository: CRAN
-Date/Publication: 2019-04-10 12:02:41 UTC
+Date/Publication: 2019-09-03 13:50:02 UTC

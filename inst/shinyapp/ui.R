@@ -39,6 +39,7 @@ fluidPage(
               ),
               
               uiOutput("catvar2"),
+              uiOutput("contvar"),
               uiOutput("catvar3"),
               uiOutput("ncuts2"),
               uiOutput("asnumeric"),
@@ -92,9 +93,11 @@ fluidPage(
             ),
             
             tabPanel(
-              "Simple Rounding",
+              "Rounding/Division",
               uiOutput("roundvar"),
-              numericInput("rounddigits",label = "N Digits",value = 0,min=0,max=10) 
+              numericInput("rounddigits",label = "N Digits",value = 0,min=0,max=10),
+              uiOutput("divideynum"),
+              uiOutput("divideydenom")
             ),
             
             tabPanel(
@@ -105,7 +108,7 @@ fluidPage(
                 condition = "input.reordervarin!='' " ,
                 selectizeInput(
                   "functionordervariable", 'By the:',
-                  choices =c("Median","Mean","Minimum","Maximum","N") ,multiple=FALSE)
+                  choices =c("Median","Mean","Minimum","Maximum","N", "SD") ,multiple=FALSE)
               ),
               uiOutput("variabletoorderby"),
               conditionalPanel(
@@ -164,17 +167,22 @@ fluidPage(
                                       "Comma separated" = "scientificx",
                                       "Percent" = "percentx")))
               ),
-              checkboxInput('rotateyticks', 'Rotate/Justify Y axis Ticks ?', value = FALSE),
-              conditionalPanel(condition = "input.rotateyticks" , 
-                               sliderInput("yticksrotateangle", "Y axis ticks angle:", min=0, max=360, value=c(0),step=10),
-                               sliderInput("ytickshjust", "Y axis ticks horizontal justification:", min=0, max=1, value=c(0.5),step=0.1),
-                               sliderInput("yticksvjust", "Y axis ticks vertical justification:", min=0, max=1, value=c(0.5),step=0.1)
+      
+              checkboxInput('rotateyticks', 'Rotate/Customize Y axis Labels ?', value = FALSE),
+              conditionalPanel(condition = "input.rotateyticks" ,
+                               sliderInput("ylabelsize", "Y axis label size: (zero to hide)",
+                                           min=0, max=100, value=c(16),step=0.5),
+                               sliderInput("yticksrotateangle", "Y axis labels angle:", min=0, max=360, value=c(0),step=10),
+                               sliderInput("ytickshjust", "Y axis labels horizontal justification:", min=0, max=1, value=c(0.5),step=0.1),
+                               sliderInput("yticksvjust", "Y axis labels vertical justification:", min=0, max=1, value=c(0.5),step=0.1)
               ),
-              checkboxInput('rotatexticks', 'Rotate/Justify X axis Ticks ?', value = FALSE),
-              conditionalPanel(condition = "input.rotatexticks" , 
-                               sliderInput("xticksrotateangle", "X axis ticks angle:", min=0, max=360, value=c(20),step=10),
-                               sliderInput("xtickshjust", "X axis ticks horizontal justification:", min=0, max=1, value=c(1),step=0.1),
-                               sliderInput("xticksvjust", "X axis ticks vertical justification:", min=0, max=1, value=c(1),step=0.1)
+              checkboxInput('rotatexticks', 'Rotate/Customize X axis Labels ?', value = FALSE),
+              conditionalPanel(condition = "input.rotatexticks" ,
+                               sliderInput("xlabelsize", "X axis label size: (zero to hide)",
+                                           min=0, max=100, value=c(16),step=0.5),
+                               sliderInput("xticksrotateangle", "X axis labels angle:", min=0, max=360, value=c(20),step=10),
+                               sliderInput("xtickshjust", "X axis labels horizontal justification:", min=0, max=1, value=c(1),step=0.1),
+                               sliderInput("xticksvjust", "X axis labels vertical justification:", min=0, max=1, value=c(1),step=0.1)
               ),
               checkboxInput('customxticks', 'Custom X axis Ticks ?', value = FALSE),
               conditionalPanel(condition = "input.customxticks" , 
@@ -256,9 +264,12 @@ fluidPage(
             
             tabPanel(
               "Background Color and Legend(s)",
-              selectInput('backgroundcol', label ='Background Color',
-                          choices=c("Gray" ="grey95","White"="white","Dark Gray"="grey90"),
-                          multiple=FALSE, selectize=TRUE,selected="white"),
+              colourpicker::colourInput(
+                "backgroundcol",
+                "Background Color",
+                value =  "white",
+                showColour = "both",
+                allowTransparent = FALSE,returnName=TRUE),
               selectInput('legendposition', label ='Legend Position',
                           choices=c("left", "right", "bottom", "top","none"),
                           multiple=FALSE, selectize=TRUE,selected="bottom"),
@@ -369,6 +380,14 @@ fluidPage(
               div( actionButton("stripbackfillresety", "Reset Y Strip Background Fill"),
                    style="text-align: right"),
               
+              colourpicker::colourInput("striptextcolourx",  "X Text Colour:",
+                                        value="black",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              colourpicker::colourInput("striptextcoloury",  "Y Text Colour:",
+                                        value="black",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              
+              
               selectizeInput(  "stripplacement", "Strip Placement:",
                                choices = c("inside","outside"),
                                options = list(  maxItems = 1 )  ),
@@ -440,7 +459,7 @@ fluidPage(
               checkboxInput('showtargettext', 'Add Target Text', value = FALSE),
               conditionalPanel(condition = "input.showtargettext" ,
                                textInput('targettext', 'Target Text', value = "Target: XX-XXX µg/mL"),
-                               sliderInput("targettextsize", "Target Text Size:", min=1, max=10, value=c(5),step=0.5),
+                               sliderInput("targettextsize", "Target Text Size:", min=1, max=10, value=c(5),step=0.1),
                                colourInput("targettextcol", "Target Text Color:", "blue",showColour = "both"),
                                sliderInput("targettextvjust", "Target Text Vertical Justification:", min=0, max=1, value=c(1),step=0.1),
                                sliderInput("targettexthjust", "Target Text Horizontal Justification:", min=0, max=1, value=c(0),step=0.1),
@@ -456,39 +475,52 @@ fluidPage(
             tabPanel(
               "Additional Themes Options",
               sliderInput("themebasesize", "Theme Size (affects all text except facet strip):", min=1, max=100, value=c(16),step=1),
-              sliderInput("striptextsizex", "X Strip Text Size:",
+              sliderInput("striptextsizex", "X Strip Text Size: (zero to hide)",
                           min=0, max=100, value=c(16),step=0.5),
-              sliderInput("striptextsizey", "Y Strip Text Size:",
+              sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
                           min=0, max=100, value=c(16),step=0.5),
-              
-              
-              
+ 
               radioButtons("themecolorswitcher", "Discrete Color and Fill Themes:",
                            c("Tableau 10"  = "themetableau10",
                              "Tableau 20"  = "themetableau20",
                              "Color Blind" = "themecolorblind",
                              "Color Blind 2" = "themecolorblind2",
                              "ggplot default" = "themeggplot",
+                             "viridis"        = "themeviridis",
                              "User defined" = "themeuser")
                            ,inline=TRUE),
               h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
                  Try to use Tableau 20 or ggplot default. Color Blind and Color Blind 2 Themes support up to 8 colors.
                  Contact me if you want to add your own set of colors."),
+              conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
+              sliderInput("nusercol", "N of User Colors:", min=2, max=20, value=c(10),step=1)
+                               ),
               uiOutput('userdefinedcolor'),
               conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-                               actionButton("userdefinedcolorreset", "Back to starting tableau10 colours", icon = icon("undo") ),
+                                actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
                                actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
                                
               ),
               
               radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
-                           c("Red White Blue"  = "RedWhiteBlue",
+                           c("ggplot gradient2"  = "RedWhiteBlue",
                              "Red White Green"  = "RedWhiteGreen",
-                             "ggplot default" = "themeggplot")
+                             "ggplot default" = "themeggplot",
+                             "viridis" = "themeviridis",
+                             "User defined" = "themeuser")
                            ,inline=TRUE),
+              uiOutput('userdefinedcontcolor'),
+              conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                               actionButton("userdefinedcontcolorreset", "Back to starting colours", icon = icon("undo") )
+              ),
+              colourpicker::colourInput(
+                "midcolor",
+                "Midpoint Color",
+                value ="white",
+                showColour = "both",
+                allowTransparent = FALSE,returnName = TRUE),
               
               numericInput("colormidpoint", "Continuous Color and Fill Midpoint",value = 0),
-              
               
               checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE) , 
               checkboxInput('themebw', 'Use Black and White Theme ?',value=TRUE),
@@ -935,11 +967,21 @@ fluidPage(
                       selectInput('smoothmethod', label ='Smoothing Method',
                                   choices=c("Loess" ="loess","Linear Fit"="lm",
                                             "Logistic"="glm1",
-                                            "Poisson"="glm2"),
+                                            "Poisson"="glm2",
+                                            "Emax"="emax"),
                                   multiple=FALSE, selectize=TRUE,selected="loess"),
                       conditionalPanel(" input.smoothmethod== 'lm' ",
                                        checkboxInput('showslopepvalue', 'Show Slope p-value ?',value = FALSE),
-                                       checkboxInput('showadjrsquared', HTML('Show R<sup>2</sup><sub>adj</sub> ?'),value = FALSE)
+                                       checkboxInput('showadjrsquared', HTML('Show R<sup>2</sup><sub>adj</sub> ?'),value = FALSE),
+                                       checkboxInput('showlmequation', HTML('Show Int/Slope values &plusmn SE ?'),value = FALSE)
+                      ),
+                      conditionalPanel(" input.smoothmethod== 'emax' ",
+                                       checkboxInput('shownlsparams', HTML('Show Emax/EC50 values &plusmn SE ?'),value = FALSE),
+                                       checkboxInput('customemaxstart', HTML('Specify Starting values for Emax/EC50 ?'),value = FALSE)
+                      ),
+                      conditionalPanel(" input.customemaxstart ",
+                                       numericInput("emaxstart",label = "Emax start",value = 1),
+                                       numericInput("ec50start",label = "EC50 start",value = 1,min=0) 
                       ),
                       conditionalPanel(" input.smoothmethod== 'loess' ",
                                        sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05),
@@ -947,12 +989,17 @@ fluidPage(
                                                    choices=c("Gaussian" ="gaussian","Symmetric"="symmetric"),
                                                    multiple=FALSE, selectize=TRUE,selected="gaussian"),
                                        sliderInput("loessdegree", "Loess Degree:", min=0, max=2, value=c(1),step=1)
+                      ),
+                      conditionalPanel(" input.smoothmethod== 'emax' | input.smoothmethod== 'lm' ",
+                                       sliderInput("smoothtextsize", "Text Size:", min=0, max=10, value=c(3.88),step=0.01)
                       )
+                      
                     ) 
                   ),
                   column (
                     3, 
                     uiOutput("weight"),
+                    h6("There is a bug in ggpmisc that prevent rendering of correct stats of the fit (slope/R2) or equation as it always returns the non weighted fit. The correct fitted line will be produced."),
                     conditionalPanel( " input.Smooth!= 'None' ",                    
                                       sliderInput("smoothlinesize", "Smooth Line(s) Size:", min=0, max=4,value=c(1.5),step=0.1),
                                       sliderInput("smoothlinealpha", "Smooth Line(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01)
@@ -1274,7 +1321,7 @@ fluidPage(
                                                 "None" = "None") ,selected="None") ,
                                  conditionalPanel( " input.KM== 'KM/CI' ",
                                                    sliderInput("KMCI", "KM CI:", min=0, max=1, value=c(0.95),step=0.01),
-                                                   sliderInput("KMCItransparency", "KM CI Transparency:", min=0, max=1, value=c(0.2),step=0.01)
+                                                   sliderInput("KMCItransparency", "KM CI Transparency:", min=0, max=1, value=c(0.2),step=0.01)              
                                  ),
                                  conditionalPanel( " input.KM!= 'None' ",
                                                    checkboxInput('KMignoregroup', 'Ignore Mapped Group',value = TRUE),
@@ -1416,7 +1463,8 @@ fluidPage(
                     checkboxInput('customlabellegend',"Show Legend ?", value=FALSE),
                     radioButtons("geomlabel", "Label Geom:",
                                  c("text" = "text","label" = "label",
-                                   "auto text repel" = "text_repel"))
+                                   "auto text repel" = "text_repel",
+                                   "auto label repel" = "label_repel"))
                   ),
                   column(3,hr(),
                          conditionalPanel(
