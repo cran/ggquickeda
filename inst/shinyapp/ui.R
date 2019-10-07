@@ -97,7 +97,10 @@ fluidPage(
               uiOutput("roundvar"),
               numericInput("rounddigits",label = "N Digits",value = 0,min=0,max=10),
               uiOutput("divideynum"),
-              uiOutput("divideydenom")
+              uiOutput("divideydenom"),
+              uiOutput("divideynum2"),
+              numericInput("divideyconstant",label = "Divide by",value = 1)
+              
             ),
             
             tabPanel(
@@ -187,27 +190,31 @@ fluidPage(
               checkboxInput('customxticks', 'Custom X axis Ticks ?', value = FALSE),
               conditionalPanel(condition = "input.customxticks" , 
                                textInput("xaxisbreaks",label ="X axis major Breaks",
-                                         value = as.character(paste(
-                                           0,12,24
-                                           ,sep=",") )
-                               ),
+                                         value = as.character(paste(0,12,24,sep=",") )),
                                textInput("xaxisminorbreaks",label ="X axis minor Breaks",
-                                         value = as.character(paste(
-                                           6,18
-                                           ,sep=",") )
+                                         value = as.character(paste(6,18,sep=",") ))
+                               ),
+              conditionalPanel(condition = "input.customxticks & input.xaxisformat=='default' " , 
+                               checkboxInput('customxtickslabel', 'Custom X axis labels ?', value = FALSE)
+              ),
+               conditionalPanel(condition = "input.customxticks & input.customxtickslabel & input.xaxisformat=='default' " , 
+                               textInput("xaxislabels",label ="X axis Labels",
+                                         value = as.character(paste("A","B","C" ,sep=",") )
                                )
               ),
               checkboxInput('customyticks', 'Custom Y axis Ticks ?', value = FALSE),
               conditionalPanel(condition = "input.customyticks" , 
                                textInput("yaxisbreaks",label ="Y axis major Breaks",
-                                         value = as.character(paste(
-                                           0,1,2
-                                           ,sep=",") )
-                               ),
+                                         value = as.character(paste(0,1,2,sep=",") )),
                                textInput("yaxisminorbreaks",label ="Y axis minor Breaks",
-                                         value = as.character(paste(
-                                           0.5,1.5
-                                           ,sep=",") )
+                                         value = as.character(paste(0.5,1.5,sep=",") ))
+              ),
+              conditionalPanel(condition = "input.customyticks & input.yaxisformat=='default' " , 
+                               checkboxInput('customytickslabel', 'Custom Y axis labels ?', value = FALSE)
+              ),
+              conditionalPanel(condition = "input.customyticks & input.customytickslabel & input.yaxisformat=='default' " , 
+                               textInput("yaxislabels",label ="Y axis Labels",
+                                         value = as.character(paste("A","B","C" ,sep=",") )
                                )
               ),
               checkboxInput('annotatelogticks', 'Add Log Tick Annotations ?', value = FALSE),
@@ -480,7 +487,7 @@ fluidPage(
               sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
                           min=0, max=100, value=c(16),step=0.5),
  
-              radioButtons("themecolorswitcher", "Discrete Color and Fill Themes:",
+              radioButtons("themecolorswitcher", "Discrete Color and Fill Scales:",
                            c("Tableau 10"  = "themetableau10",
                              "Tableau 20"  = "themetableau20",
                              "Color Blind" = "themecolorblind",
@@ -501,6 +508,20 @@ fluidPage(
                                actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
                                
               ),
+              
+              radioButtons("scaleshapeswitcher", "Discrete Shape Scales:",
+                           c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+              conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
+                               sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
+              ),
+              uiOutput('userdefinedshape'),
+              
+              radioButtons("scalelinetypeswitcher", "Discrete Linetype Scales:",
+                           c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+              conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
+                               sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
+              ),
+              uiOutput('userdefinedlinetype'),
               
               radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
                            c("ggplot gradient2"  = "RedWhiteBlue",
@@ -652,7 +673,6 @@ fluidPage(
                         "diamond open"          ,
                         "triangle down open"    ,
                         "square cross"          ,
-                        "asterisk"              ,
                         "diamond plus"          ,
                         "circle plus"           ,
                         "star"                  ,
@@ -976,12 +996,17 @@ fluidPage(
                                        checkboxInput('showlmequation', HTML('Show Int/Slope values &plusmn SE ?'),value = FALSE)
                       ),
                       conditionalPanel(" input.smoothmethod== 'emax' ",
-                                       checkboxInput('shownlsparams', HTML('Show Emax/EC50 values &plusmn SE ?'),value = FALSE),
-                                       checkboxInput('customemaxstart', HTML('Specify Starting values for Emax/EC50 ?'),value = FALSE)
+                                       checkboxInput('shownlsparams', HTML('Show Fitted values &plusmn SE ?'),value = FALSE),
+                                       checkboxInput('customemaxstart', HTML('Specify Starting values ?'),value = FALSE)
                       ),
                       conditionalPanel(" input.customemaxstart ",
                                        numericInput("emaxstart",label = "Emax start",value = 1),
-                                       numericInput("ec50start",label = "EC50 start",value = 1,min=0) 
+                                       numericInput("ec50start",label = "EC50 start",value = 1,min=0),
+                                       checkboxInput('e0fit', 'E0 Fit ?',value = FALSE)
+                      ),
+                      
+                      conditionalPanel(" input.customemaxstart & input.e0fit ",
+                                       numericInput("e0start",label = "E0 start",value = 1)
                       ),
                       conditionalPanel(" input.smoothmethod== 'loess' ",
                                        sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05),
@@ -992,14 +1017,15 @@ fluidPage(
                       ),
                       conditionalPanel(" input.smoothmethod== 'emax' | input.smoothmethod== 'lm' ",
                                        sliderInput("smoothtextsize", "Text Size:", min=0, max=10, value=c(3.88),step=0.01)
+                                       
                       )
+                      
                       
                     ) 
                   ),
                   column (
                     3, 
                     uiOutput("weight"),
-                    h6("There is a bug in ggpmisc that prevent rendering of correct stats of the fit (slope/R2) or equation as it always returns the non weighted fit. The correct fitted line will be produced."),
                     conditionalPanel( " input.Smooth!= 'None' ",                    
                                       sliderInput("smoothlinesize", "Smooth Line(s) Size:", min=0, max=4,value=c(1.5),step=0.1),
                                       sliderInput("smoothlinealpha", "Smooth Line(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01)
@@ -1163,7 +1189,6 @@ fluidPage(
                                                   "diamond open"          ,
                                                   "triangle down open"    ,
                                                   "square cross"          ,
-                                                  "asterisk"              ,
                                                   "diamond plus"          ,
                                                   "circle plus"           ,
                                                   "star"                  ,
@@ -1279,7 +1304,6 @@ fluidPage(
                                                           "diamond open"          ,
                                                           "triangle down open"    ,
                                                           "square cross"          ,
-                                                          "asterisk"              ,
                                                           "diamond plus"          ,
                                                           "circle plus"           ,
                                                           "star"                  ,

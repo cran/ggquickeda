@@ -1,3 +1,13 @@
+# ggquickeda 0.1.5
+* let ggpairs plots reflect custom color scales
+* update the emax smoother to add e0
+* apply a fix for the weight aesthetic for emax smoother
+* update code to be compatible with breaking change from tidyr 1.0
+* user defined shape and linetype scales
+* user defined custom labels for custom x and y axes ticks
+* user can divide by a constant not just a column
+
+
 # ggquickeda 0.1.4
 * custom labels with text, label, text_repel and label_repel
 * user can now add more custom colors up to 20

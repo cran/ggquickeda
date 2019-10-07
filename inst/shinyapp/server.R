@@ -1083,7 +1083,7 @@ function(input, output, session) {
   rounddata <- reactive({
     df <- filterdata8()
     validate(       need(!is.null(df), "Please select a data set"))
-    if(!is.null(input$roundvarin)&length(input$roundvarin ) >=1) {
+    if(!is.null(input$roundvarin)&&length(input$roundvarin ) >=1) {
       for (i in 1:length(input$roundvarin ) ) {
         varname<- input$roundvarin[i]
         df[,varname]   <- round( df[,varname],input$rounddigits)
@@ -1115,14 +1115,34 @@ function(input, output, session) {
     if (!is.null(df)){
       items=names(df)
       names(items)=items
-      MODEDF <- sapply(df, function(x) !is.character(x) )
+      MODEDF <- sapply(df, function(x) is.numeric(x) )
       NAMESTOKEEP2<- names(df)  [MODEDF]
       selectInput(  "divideydenomin", "Variable to divide by", choices = NAMESTOKEEP2,multiple=FALSE)
     }
   })
   
+  output$divideynum2 <- renderUI({
+    df <- dividedata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      items=names(df)
+      names(items)=items
+      MODEDF <- sapply(df, function(x) is.numeric(x))
+      NAMESTOKEEP2<- names(df)  [MODEDF]
+      selectizeInput(  "divideynumin2", "Divide the Values by a constant:", choices = NAMESTOKEEP2,
+                       multiple=TRUE,
+                       options = list(
+                         placeholder = 'Please select some variables',
+                         onInitialize = I('function() { this.setValue(""); }')
+                       )
+      )
+    }
+  })
+  
+  
   outputOptions(output, "divideynum", suspendWhenHidden=FALSE)
   outputOptions(output, "divideydenom", suspendWhenHidden=FALSE)
+  outputOptions(output, "divideynum2", suspendWhenHidden=FALSE)
   
   
   dividedata <- reactive({
@@ -1130,7 +1150,7 @@ function(input, output, session) {
     validate(       need(!is.null(df), "Please select a data set"))
     if(!is.null(input$divideynumin)&&length(input$divideynumin ) >=1 &&
        !is.null(input$divideydenomin)) {
-      for (i in 1:length(input$roundvarin ) ) {
+      for (i in 1:length(input$divideynumin ) ) {
         varname<- input$divideynumin[i]
         dosname<- input$divideydenomin
         df[,varname]   <-  df[,varname] /as.numeric(as.character(df[,dosname]))
@@ -1139,16 +1159,26 @@ function(input, output, session) {
     df
   })
   
-  
+  dividedata2 <- reactive({
+    df <- dividedata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$divideynumin2)&&length(input$divideynumin2 ) >=1) {
+      for (i in 1:length(input$divideynumin2 ) ) {
+        varname<- input$divideynumin2[i]
+        df[,varname]   <-  df[,varname] /input$divideyconstant
+      }
+    }
+    df
+  })
   
   tabledata <- reactive({
-    df <- dividedata() 
+    df <- dividedata2() 
     df
   })
   
   stackdata <- reactive({
     
-    df <- dividedata()
+    df <- dividedata2()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       validate(  need(!is.element(input$x,input$y) ,
@@ -1160,7 +1190,7 @@ function(input, output, session) {
         validate(need(all(input$y %in% names(df)), "Invalid y value(s)"))
         
         tidydata <- df %>%
-          gather( "yvars", "yvalues", gather_cols=as.vector(input$y) ,factor_key = TRUE) 
+          gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE) 
         if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
           tidydata <- tidydata %>%
             mutate(yvalues=as.factor(as.character(yvalues) ))
@@ -1860,6 +1890,74 @@ function(input, output, session) {
     
   })
   
+  output$userdefinedshape <- renderUI({ 
+    req(input$nusershape)
+    lev <- 1:input$nusershape
+      shapes <- c("circle open",
+                  "triangle open",
+                  "square open",
+                  "plus",
+                  "square cross",
+                  "asterisk",
+                  "circle small" ,"triangle" ,"square")
+    shapes <- rep_len(shapes, input$nusershape)
+
+    if(input$scaleshapeswitcher=="themeuser"){
+      lapply(seq_along(lev), function(i) {
+        selectInput(inputId = paste0("shape", lev[i]),label = paste0('User Point(s) Shape:', lev[i]),
+                    c(
+                      "square open"           ,
+                      "circle open"           ,
+                      "triangle open"         ,
+                      "plus"                  ,
+                      "cross"                 ,
+                      "asterisk"              ,
+                      "diamond open"          ,
+                      "triangle down open"    ,
+                      "square cross"          ,
+                      "diamond plus"          ,
+                      "circle plus"           ,
+                      "star"                  ,
+                      "square plus"           ,
+                      "circle cross"          ,
+                      "square triangle"       ,
+                      "square"                ,
+                      "circle small"          ,
+                      "triangle"              ,
+                      "diamond"               ,
+                      "circle"                ,
+                      "bullet"                ,
+                      "circle filled"         ,
+                      "square filled"         ,
+                      "diamond filled"        ,
+                      "triangle filled"       ,
+                      "triangle down filled" 
+                    ), selected = shapes[i]
+        )
+        
+      })
+    }
+    
+  })
+  
+  output$userdefinedlinetype <- renderUI({ 
+    req(input$nuserlinetype)
+    lev <- 1:input$nuserlinetype
+    linetypes <- c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank")
+    linetypes <- rep_len(linetypes, input$nuserlinetype)
+    
+    if(input$scalelinetypeswitcher=="themeuser"){
+      lapply(seq_along(lev), function(i) {
+        selectInput(inputId = paste0("linetype", lev[i]),label = paste0('User Linetype(s):', lev[i]),
+                    c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), selected = linetypes[i]
+        )
+        
+      })
+    }
+    
+  })
+  
+  
   output$userdefinedcontcolor <- renderUI({ 
       if(input$themecontcolorswitcher=="themeuser"){
       list(
@@ -2056,18 +2154,139 @@ function(input, output, session) {
         scale_fill_manual(..., values = cbbPalette,drop=!input$themecolordrop)
     }
     
+    if (input$scaleshapeswitcher=="themeuser"){
+      shapes <- paste0("c(", paste0("input$shape", 1:input$nusershape, collapse = ", "), ")")
+      shapes <- eval(parse(text = shapes))
+      scale_shape_discrete <- function(...)
+        scale_shape_manual(..., values = shapes)
+    }
+    
+    if (input$scalelinetypeswitcher=="themeuser"){
+      linetypes <- paste0("c(", paste0("input$linetype", 1:input$nuserlinetype, collapse = ", "), ")")
+      linetypes <- eval(parse(text = linetypes))
+      scale_linetype_discrete <- function(...)
+        scale_linetype_manual(..., values = linetypes)
+    }
+    
     # Determine what type of plot to show based on what variables were chosen
     if (input$show_pairs) {
       # Matrix of pairs of plots of all the Y variables
       if (input$colorin == 'None'){
-        p <- sourceable(GGally::ggpairs(plotdata, columns = input$y, progress = FALSE))
+        p <- sourceable(GGally::ggpairs(plotdata, columns = input$y,
+                                        diag = list(continuous = GGally::wrap("densityDiag", alpha=0.2),
+                                                    discrete = GGally::wrap("barDiag",  alpha=0.2,position="dodge2")),
+                                        lower = list(continuous = GGally::wrap("smooth", alpha = 0.2, size=0.1),
+                                                     combo = GGally::wrap("facethist", alpha=0.2,position="dodge2"),
+                                                     discrete = GGally::wrap("facetbar",  alpha=0.2,position="dodge2")
+                                        ),
+                                        upper = list(continuous = function(data, mapping, ...) {
+                                          GGally::ggally_cor(data = data, mapping = mapping, size=4, alignPercent=0.8)
+                                            },
+                                                     combo = GGally::wrap("box_no_facet", alpha=0.2),
+                                                     discrete = GGally::wrap("facetbar",  alpha=0.2,position="dodge2")),
+                                        progress = FALSE)
+                        )
       }
       if (input$colorin != 'None'){
-        p <- sourceable(GGally::ggpairs(plotdata, columns = input$y,
-                                        mapping=ggplot2::aes_string(color=input$colorin), 
-                                        progress = FALSE))
+        
+        if( !is.numeric(plotdata[,input$colorin]) ){
+        p <- sourceable(
+          GGally::ggpairs(
+            plotdata,
+            columns = input$y,
+            mapping = ggplot2::aes_string(color = input$colorin),
+            diag = list(
+              continuous = function(data, mapping, ...) {
+                GGally::ggally_densityDiag(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  linetype = 0
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              },
+              discrete = function(data, mapping, ...) {
+                GGally::ggally_barDiag(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  position = "dodge2"
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              }
+            ),
+            lower = list(
+              continuous = function(data, mapping, ...) {
+                GGally::ggally_smooth(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  size = 0.1
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              },
+              combo = function(data, mapping, ...) {
+                GGally::ggally_facethist(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  position = "dodge2"
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              },
+              discrete = function(data, mapping, ...) {
+                GGally::ggally_facetbar(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  position = "dodge2"
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              }
+            ),
+            upper = list(
+              continuous = function(data, mapping, ...) {
+                GGally::ggally_cor(
+                  data = data,
+                  mapping = mapping,
+                  size = 4,
+                  alignPercent = 0.8
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              },
+              combo = function(data, mapping, ...) {
+                GGally::ggally_box_no_facet(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              },
+              discrete = function(data, mapping, ...) {
+                GGally::ggally_facetbar(
+                  data = data,
+                  mapping = mapping,
+                  alpha = 0.2,
+                  position = "dodge2"
+                ) +
+                  scale_colour_discrete()+
+                  scale_fill_discrete()
+              }
+            ),
+            progress = FALSE
+          )
+        )
+        }
+
       }
-      
+       
+
       
     } else if (is.null(input$y)) {
       # Univariate plot
@@ -2968,11 +3187,19 @@ function(input, output, session) {
           methodsargument<- list(family = familyargument) 
         }
         
-        if(input$smoothmethod=="emax") {
+        if(input$smoothmethod=="emax" ) {
           
-          if(! input$customemaxstart) methodsargument<- list(formula = y ~ SSmicmen(x, Vm, K))
-          if( input$customemaxstart)  methodsargument<- list(formula = y ~ SSmicmen(x, Vm, K),start=c(Vm =input$emaxstart , K =input$ec50start))
+          if(!input$customemaxstart && !input$e0fit)  methodsargument <- list(formula = y ~ SSmicmen(x, Vm, K))
+          if( input$customemaxstart && !input$e0fit)  methodsargument <- list(formula = y ~ SSmicmen(x, Vm, K),
+                                                                              start=c(Vm =input$emaxstart , K =input$ec50start))
+          if( input$customemaxstart &&  input$e0fit)  methodsargument <- list(formula = y ~ bsl + (Vm *x / (K+x)) ,
+                                                                             start=c(Vm = input$emaxstart ,
+                                                                                      K = input$ec50start,
+                                                                                     bsl= input$e0start))
+          if(!input$customemaxstart &&  input$e0fit)   methodsargument<- NULL
+          
         }
+  
 
         smoothmethodargument<- ifelse(input$smoothmethod%in%c("glm1","glm2"),
                                       "glm",input$smoothmethod)
@@ -3004,8 +3231,8 @@ function(input, output, session) {
             }
              if (input$smoothmethod=="lm"&&input$showadjrsquared){
                p <- p+
-                ggpmisc::stat_fit_glance(method = "lm",
-                                         method.args = list(formula = y ~ x),
+                ggpmisc::stat_fit_glance(method = "lm", 
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
@@ -3017,8 +3244,8 @@ function(input, output, session) {
             }
             if (input$smoothmethod=="lm"&&input$showslopepvalue){
                p <- p+
-                ggpmisc::stat_fit_glance(method = "lm",
-                                         method.args = list(formula = y ~ x),
+                ggpmisc::stat_fit_glance(method = "lm", force = 3,
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
@@ -3027,10 +3254,10 @@ function(input, output, session) {
                                          show.legend = FALSE)
             }
             if (input$smoothmethod=="lm" && input$showlmequation){
-              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",size=input$smoothtextsize,
-                                         method.args = list(formula = y ~ x),
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",
+                                         method.args = list(formula = y ~ x, weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x = Inf ,label.y = -Inf,
+                                         label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
                                          aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
                                                                    "%+-%", signif(..x_se.., digits = 2),
                                                                    "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
@@ -3050,9 +3277,10 @@ function(input, output, session) {
                                  method='nls',
                                  method.args = methodsargument,
                                  size=smoothlinesize,se=F,aes(group=NULL,weight=!!aesweight))
-              if(input$shownlsparams){
+              
+              if(input$shownlsparams && !input$e0fit){
                 p <- p +ggpmisc::stat_fit_tidy(method = "nls",size=input$smoothtextsize, 
-                                         method.args = methodsargument,
+                                         method.args = c(methodsargument,weights =quote(weight)),
                                          label.x = "right",
                                          label.y = "bottom",
                                          aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
@@ -3064,7 +3292,21 @@ function(input, output, session) {
                                          parse = TRUE)
               }
               
-            
+              if(input$shownlsparams && input$e0fit){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls",size=input$smoothtextsize, 
+                                               method.args = c(methodsargument,weights =quote(weight)),
+                                               label.x = "right",
+                                               label.y = "bottom",
+                                               aes(label = paste("E[0]~`=`~", signif(..bsl_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..bsl_se.., digits = 2),
+                                                                 "~~~E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..Vm_se.., digits = 2),
+                                                                 "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..K_se.., digits = 2),
+                                                                 sep = ""),
+                                                   group=NULL,weight=!!aesweight),
+                                               parse = TRUE)
+              }
       
             }#!input$smoothignorecol&& input$smoothmethod=="emax"
           
@@ -3089,7 +3331,7 @@ function(input, output, session) {
             if (input$smoothmethod=="lm"&&input$showadjrsquared){
               p <- p+
                 ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
-                                         method.args = list(formula = y ~ x),
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
@@ -3101,10 +3343,10 @@ function(input, output, session) {
             }
             if (input$smoothmethod=="lm"&&input$showslopepvalue){
               p <- p+
-                ggpmisc::stat_fit_glance(method = "lm", col=colsmooth,size=input$smoothtextsize,
-                                         method.args = list(formula = y ~ x),
+                ggpmisc::stat_fit_glance(method = "lm", col=colsmooth,force = 3,
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf,
+                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              group=NULL,weight=!!aesweight),
@@ -3112,9 +3354,9 @@ function(input, output, session) {
             }
             if (input$smoothmethod=="lm" && input$showlmequation){
               p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,size=input$smoothtextsize,
-                                             method.args = list(formula = y ~ x),
+                                             method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf,
+                                             label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
                                                                "%+-%", signif(..x_se.., digits = 2),
                                                                "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
@@ -3132,9 +3374,10 @@ function(input, output, session) {
                                  method='nls',
                                  method.args = methodsargument,
                                  size=smoothlinesize,se=F,col=colsmooth,aes(group=NULL,weight=!!aesweight))
-              if(input$shownlsparams){
+              
+              if(input$shownlsparams && !input$e0fit){
                 p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
-                                               method.args = methodsargument,
+                                               method.args = c(methodsargument,weights =quote(weight)),
                                                label.x = "right",
                                                label.y = "bottom",
                                                aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
@@ -3144,6 +3387,23 @@ function(input, output, session) {
                                                                  sep = ""),
                                                    group=NULL,weight=!!aesweight),
                                                parse = TRUE)
+              }
+              
+              if(input$shownlsparams && input$e0fit){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
+                                               method.args = c(methodsargument,weights =quote(weight)),
+                                               label.x = "right",
+                                               label.y = "bottom",
+                                               aes(label = paste("E[0]~`=`~", signif(..bsl_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..bsl_se.., digits = 2),
+                                                                 "~~~E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..Vm_se.., digits = 2),
+                                                                 "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..K_se.., digits = 2),
+                                                                 sep = ""),
+                                                   group=NULL,weight=!!aesweight),
+                                               parse = TRUE)
+
               }
 
           }#input$smoothignorecol && !input$smoothmethod=="emax"
@@ -3172,7 +3432,7 @@ function(input, output, session) {
             if (input$smoothmethod=="lm"&&input$showadjrsquared){
               p <- p+
                 ggpmisc::stat_fit_glance(method = "lm",
-                                         method.args = list(formula = y ~ x),
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
@@ -3184,8 +3444,8 @@ function(input, output, session) {
             }
             if (input$smoothmethod=="lm"&&input$showslopepvalue){
               p <- p+
-                ggpmisc::stat_fit_glance(method = "lm",
-                                         method.args = list(formula = y ~ x),
+                ggpmisc::stat_fit_glance(method = "lm", force = 3,
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
@@ -3195,10 +3455,10 @@ function(input, output, session) {
             }
             
             if (input$smoothmethod=="lm" && input$showlmequation){
-              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",size=input$smoothtextsize,
-                                             method.args = list(formula = y ~ x),
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",
+                                             method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf,
+                                             label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
                                                                "%+-%", signif(..x_se.., digits = 2),
                                                                "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
@@ -3217,10 +3477,11 @@ function(input, output, session) {
                                  method='nls',
                                  method.args = methodsargument,
                                  size=smoothlinesize,se=F)
-              if(input$shownlsparams){
+              
+              if(input$shownlsparams && !input$e0fit){
                 p <- p +
                   ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, 
-                                         method.args = methodsargument,
+                                         method.args = c(methodsargument,weights =quote(weight)),
                                          label.x = "right",
                                          label.y = "bottom",
                                          aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
@@ -3231,6 +3492,24 @@ function(input, output, session) {
                                              weight=!!aesweight),
                                          parse = TRUE)
               }
+              if(input$shownlsparams && input$e0fit){
+                p <- p +
+                  ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, 
+                                         method.args = c(methodsargument,weights =quote(weight)),
+                                         label.x = "right",
+                                         label.y = "bottom",
+                                         aes(label = paste("E[0]~`=`~", signif(..bsl_estimate.., digits = 3),
+                                                           "%+-%"       , signif(..bsl_se.., digits = 2),
+                                                           "~~~E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                           "%+-%"       , signif(..Vm_se.., digits = 2),
+                                                           "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                           "%+-%"       , signif(..K_se.., digits = 2),
+                                                           sep = ""),
+                                             weight=!!aesweight),
+                                         parse = TRUE)
+              }
+              
+              
 
             }
           
@@ -3255,9 +3534,9 @@ function(input, output, session) {
             if (input$smoothmethod=="lm"&&input$showadjrsquared){
               p <- p+
                 ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
-                                         method.args = list(formula = y ~ x),
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         label.x=-Inf ,label.y=-Inf, size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
                                                            signif(..adj.r.squared.., digits = 2), sep = ""),
                                              weight=!!aesweight),
@@ -3267,10 +3546,10 @@ function(input, output, session) {
             }
             if (input$smoothmethod=="lm"&&input$showslopepvalue){
               p <- p+
-                ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
-                                         method.args = list(formula = y ~ x),
+                ggpmisc::stat_fit_glance(method = "lm",col=colsmooth, force = 3,
+                                         method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         label.x=-Inf ,label.y=Inf, size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              weight=!!aesweight),
@@ -3278,10 +3557,10 @@ function(input, output, session) {
             }
             
             if (input$smoothmethod=="lm" && input$showlmequation){
-              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,size=input$smoothtextsize,
-                                             method.args = list(formula = y ~ x),
+              p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,
+                                             method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf,
+                                             label.x = Inf ,label.y = -Inf, size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
                                                                "%+-%", signif(..x_se.., digits = 2),
                                                                "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
@@ -3291,15 +3570,16 @@ function(input, output, session) {
             }
             
           }
-          if (input$smoothignorecol&& input$smoothmethod=="emax") {
+          if (input$smoothignorecol && input$smoothmethod=="emax") {
           
               p <- p + geom_line(aes(weight=!!aesweight),stat="smooth",alpha=smoothlinealpha,
                                  method='nls',
                                  method.args = methodsargument,
                                  size=smoothlinesize,se=F,col=colsmooth)
-              if(input$shownlsparams){
+              
+              if(input$shownlsparams && !input$e0fit){
                 p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
-                                               method.args = methodsargument,
+                                               method.args = c(methodsargument,weights =quote(weight)),
                                                label.x = "right",
                                                label.y = "bottom",
                                                aes(label = paste("E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
@@ -3309,7 +3589,23 @@ function(input, output, session) {
                                                                  sep = ""),
                                                    weight=!!aesweight),
                                                parse = TRUE)
-            }
+              }
+              
+              if(input$shownlsparams && input$e0fit){
+                p <- p +ggpmisc::stat_fit_tidy(method = "nls", size=input$smoothtextsize, col=colsmooth,
+                                               method.args = c(methodsargument,weights =quote(weight)),
+                                               label.x = "right",
+                                               label.y = "bottom",
+                                               aes(label = paste("E[0]~`=`~", signif(..bsl_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..bsl_se.., digits = 2),
+                                                                 "~~~E[max]~`=`~", signif(..Vm_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..Vm_se.., digits = 2),
+                                                                 "~~~EC[50]~`=`~", signif(..K_estimate.., digits = 3),
+                                                                 "%+-%"       , signif(..K_se.., digits = 2),
+                                                                 sep = ""),
+                                                   weight=!!aesweight),
+                                               parse = TRUE)
+              }
             
 }
           }#smooth ignore group
@@ -4095,7 +4391,7 @@ function(input, output, session) {
           ggsurv <- survminer::ggsurvplot(fitsurv, plotdata,risk.table = TRUE,  ggtheme = theme_bw())
           risktabledata<- ggsurv$table$data
           if(length(as.vector(input$risktablevariables)) > 0){
-            risktabledatag<- gather(risktabledata,key,value, gather_cols=as.vector(input$risktablevariables) ,factor_key = TRUE)
+            risktabledatag<- gather(risktabledata,key,value, !!!input$risktablevariables ,factor_key = TRUE)
             risktabledatag$keynumeric<- - input$nriskpositionscaler* as.numeric(as.factor(risktabledatag$key)) 
           }
           if(!is.null(fitsurv$strata) | is.matrix(fitsurv$surv))  {
@@ -4321,18 +4617,29 @@ function(input, output, session) {
       }
       
       
-      if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$yaxisformat=="default")
+      if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && !input$customyticks && input$yaxisformat=="default")
         p <- p + scale_y_log10()
-      if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$yaxisformat=="logyformat")
+      
+      if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && !input$customyticks && input$yaxisformat=="logyformat")
         p <- p + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                                labels = trans_format("log10", math_format(10^.x)))
-      if (input$yaxisscale=="logy"&& is.numeric(plotdata[,"yvalues"])&&input$yaxisformat=="logyformat2")
+      if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && !input$customyticks && input$yaxisformat=="logyformat2")
         p <- p + scale_y_log10(labels=prettyNum)
       
       if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$customyticks && input$yaxisformat=="default") {
-        p <- p  + 
+        if ( !input$customytickslabel) {
+         p <- p  + 
           scale_y_log10(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
                         minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+        }
+        if ( input$customytickslabel) {
+          yaxislabels <- gsub("\\\\n", "\\\n", input$yaxislabels)
+          p <- p  + 
+            scale_y_log10(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                          labels= rep_len(unlist(strsplit(yaxislabels, ",")) ,
+                                          length(as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ",")))))),
+                          minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+        }
       }
       
       if (input$yaxisscale=="logy" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"])  && input$customyticks && input$yaxisformat=="logyformat") {
@@ -4359,9 +4666,20 @@ function(input, output, session) {
       
       
       if (input$yaxisscale=="lineary" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$customyticks && input$yaxisformat=="default") {
+        if ( !input$customytickslabel) {
         p <- p  + 
           scale_y_continuous(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
                              minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+        }
+        if ( input$customytickslabel) {
+          yaxislabels <- gsub("\\\\n", "\\\n", input$yaxislabels)
+          p <- p  + 
+            scale_y_continuous(breaks=as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ","))) ),
+                               labels= rep_len(unlist(strsplit(yaxislabels, ",")) ,
+                                               length(as.numeric(unique(unlist (strsplit(input$yaxisbreaks, ",")))))),
+                               minor_breaks = as.numeric(unique(unlist (strsplit(input$yaxisminorbreaks, ","))) ) ) 
+        }
+        
       }
       
       if (input$yaxisscale=="lineary" && !is.null(plotdata$yvalues) && is.numeric(plotdata[,"yvalues"]) && input$customyticks && input$yaxisformat=="scientificy") {
@@ -4379,22 +4697,34 @@ function(input, output, session) {
       }
       
       
-      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="default")
+      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && !input$customxticks && input$xaxisformat=="default")
         p <- p + scale_x_log10()
-      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="logxformat")
+      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && !input$customxticks && input$xaxisformat=="logxformat")
         p <- p + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
                                labels = trans_format("log10", math_format(10^.x)))
-      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x])&& input$xaxisformat=="logxformat2")
+      if (input$xaxisscale=="logx"&& is.numeric(plotdata[,input$x]) && !input$customxticks && input$xaxisformat=="logxformat2")
         p <- p + scale_x_log10(labels = prettyNum)
       
       
       
       
       if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$customxticks && input$xaxisformat=="default") {
+        if ( !input$customxtickslabel) {
         p <- p  + 
           scale_x_log10(breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
                         minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+        }
+        
+        if ( input$customxtickslabel) {
+          xaxislabels <- gsub("\\\\n", "\\\n", input$xaxislabels)
+          p <- p  + 
+            scale_x_log10(breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+                          labels= rep_len(unlist(strsplit(xaxislabels, ",")) ,
+                                          length(as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ",")))))),
+                          minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+        }
       }
+      
       
       if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$customxticks && input$xaxisformat=="logxformat") {
         p <- p  + 
@@ -4402,7 +4732,7 @@ function(input, output, session) {
                         breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
                         minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
       }
-      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$customxticks &&input$xaxisformat=="logxformat2" ) {
+      if (input$xaxisscale=="logx" && is.numeric(plotdata[,input$x]) && input$customxticks && input$xaxisformat=="logxformat2" ) {
         p <- p  + 
           scale_x_log10(labels = prettyNum,
                         breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
@@ -4410,19 +4740,32 @@ function(input, output, session) {
       }
       
       
-      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="scientificx")
+      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x])  && !input$customxticks && input$xaxisformat=="scientificx")
         p <- p  + 
         scale_x_continuous(labels=comma )
       
-      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$xaxisformat=="percentx")
+      if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && !input$customxticks && input$xaxisformat=="percentx")
         p <- p  + 
         scale_x_continuous(labels=percent )
       
       if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$customxticks && input$xaxisformat=="default") {
-        p <- p  + 
-          scale_x_continuous(
-            breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
-            minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+        
+        if ( !input$customxtickslabel) {
+          p <- p  + 
+            scale_x_continuous(
+              breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+              minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+        }
+        if ( input$customxtickslabel) {
+         xaxislabels <- gsub("\\\\n", "\\\n", input$xaxislabels)
+          p <- p  + 
+            scale_x_continuous(
+              breaks=as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ","))) ),
+              labels= rep_len(unlist(strsplit(xaxislabels, ",")) ,
+                              length(as.numeric(unique(unlist (strsplit(input$xaxisbreaks, ",")))))),
+              minor_breaks = as.numeric(unique(unlist (strsplit(input$xaxisminorbreaks, ","))) ) ) 
+        }
+      
       }
       if (input$xaxisscale=="linearx" && is.numeric(plotdata[,input$x]) && input$customxticks && input$xaxisformat=="scientificx") {
         p <- p  + 
