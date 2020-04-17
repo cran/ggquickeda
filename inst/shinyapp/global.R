@@ -23,6 +23,7 @@ suppressMessages({
   library(ggstance)
   library(GGally)
 })
+#source("gradientInput.R") pending a shinyjqui fix
 
 options(shiny.maxRequestSize=250*1024^2) 
 

@@ -225,7 +225,13 @@ fluidPage(
                                                      "Right"="r",
                                                      "Bottom"="b"),
                                            multiple=TRUE, selectize=TRUE,selected="l")
-              )
+              ),
+              
+              checkboxInput('rmmajorgridlines', 'Remove Major Grid Lines ?',value=FALSE),
+              checkboxInput('rmminorgridlines', 'Remove Minor Grid Lines ?',value=FALSE),
+              
+              checkboxInput('rmxaxistickslabels', 'Remove X axis ticks and labels ?',value=FALSE),
+              checkboxInput('rmyaxistickslabels', 'Remove Y axis ticks and labels ?',value=FALSE)
             ),
             tabPanel(
               "Graph Size/Zoom",
@@ -272,27 +278,38 @@ fluidPage(
             tabPanel(
               "Background Color and Legend(s)",
               colourpicker::colourInput(
-                "backgroundcol",
-                "Background Color",
-                value =  "white",
-                showColour = "both",
-                allowTransparent = FALSE,returnName=TRUE),
+                "backgroundcol","Background Color",value =  "white",
+                showColour = "both",allowTransparent = FALSE,returnName=TRUE),
               selectInput('legendposition', label ='Legend Position',
-                          choices=c("left", "right", "bottom", "top","none"),
+                          choices=c("left", "right", "bottom", "top","none","custom"),
                           multiple=FALSE, selectize=TRUE,selected="bottom"),
+              conditionalPanel(
+                condition = "input.legendposition=='custom'",
+                inline_ui(
+                  numericInput("legendpositionx",label = "Legend X Position",
+                               value = 0.5,min=0,max=1,width='50%')),
+                inline_ui(
+                  numericInput("legendpositiony",label = "Legend Y Position",
+                               value = 0.5,min=0,max=1,width='50%'))),
               selectInput('legenddirection', label ='Layout of Items in Legends',
                           choices=c("horizontal", "vertical"),
                           multiple=FALSE, selectize=TRUE,selected="horizontal"),
               selectInput('legendbox', label ='Arrangement of Multiple Legends ',
                           choices=c("horizontal", "vertical"),
                           multiple=FALSE, selectize=TRUE,selected="vertical"),
+              colourpicker::colourInput(
+                "legendbackground","Legend Background Fill",value =  "white",
+                showColour = "both",allowTransparent = TRUE,returnName=TRUE),
+              colourpicker::colourInput(
+                "legendkey","Legend Item Fill",value =  "white",
+                showColour = "both",allowTransparent = TRUE,returnName=TRUE),
               checkboxInput('sepguides', 'Separate Legend Items for Median/PI ?',value = TRUE),       
               checkboxInput('labelguides', 'Hide the Names of the Legend Items ?',value = FALSE),
               sliderInput("legendspacex", "Multiplier for Space between Legend Items",
-                          min = 0, max = 1.5, step = 0.1, value = 1),
-              
-              
-              checkboxInput('customlegendtitle', 'Customization of Legend Titles, number of columns of items and reversing the legend items ?',value = FALSE),
+                          min = 0, max = 3, step = 0.1, value = 1),
+              checkboxInput('customlegendtitle', 'Customization of Legend Titles,
+                            number of columns of items and reversing the legend items ?',
+                            value = FALSE),
               conditionalPanel(
                 condition = "input.customlegendtitle",
                 textInput("customcolourtitle", label ="Colour Legend Title",value="colour"),
@@ -332,13 +349,32 @@ fluidPage(
             ),
             tabPanel(
               "Facets Options",
+              sliderInput("striptextsizex", "X Strip Text Size: (zero to hide)",
+                          min=0, max=100, value=c(16),step=0.5),
+              colourpicker::colourInput("striptextcolourx",  "X Text Colour:",
+                                        value="black",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              colourpicker::colourInput("stripbackgroundfillx",
+                                        "X Strip Background Fill:",
+                                        value="#E5E5E5",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              div( actionButton("stripbackfillresetx", "Reset X Strip Background Fill"),
+                   style="text-align: right"),
+              sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
+                          min=0, max=100, value=c(16),step=0.5),
+              colourpicker::colourInput("striptextcoloury",  "Y Text Colour:",
+                                        value="black",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              colourpicker::colourInput("stripbackgroundfilly",
+                                        "Y Strip Background Fill:",
+                                        value="#E5E5E5",
+                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+              div( actionButton("stripbackfillresety", "Reset Y Strip Background Fill"),
+                   style="text-align: right"),
+              
+              
               uiOutput("facetscales"),
               selectInput('facetspace' ,'Facet Spaces:',c("fixed","free_x","free_y","free")),
-              selectInput('facetordering' ,'Facet Ordering:',c(
-                "Top to Bottom, Left to Right Ordering like a Table" ="table",
-                "Bottom to Top, Left to Right Ordering like a Plot" ="plot"),
-                selected="table"),
-              
               conditionalPanel(
                 condition = "!input.facetwrap" ,
                 selectizeInput(  "facetswitch", "Facet Switch to Near Axis:",
@@ -351,19 +387,35 @@ fluidPage(
                 conditionalPanel(
                   "input.facetmargin == 'some'",
                   selectInput('facetmargin_vars', NULL, choices = c(), multiple = TRUE,)
+                )
                 ),
-                selectInput('facetlabeller' ,'Facet Label:',c(
-                  "Variable(s) Name(s) and Value(s)" ="label_both",
-                  "Value(s)"="label_value",
-                  "Parsed Expression" ="label_parsed"),
-                  selected="label_both")),
+              selectInput('facetlabeller' ,'Facet Label:',c(
+                "Variable(s) Name(s) and Value(s)" ="label_both",
+                "Value(s)"="label_value",
+                "Parsed Expression" ="label_parsed",
+                "Depends on Context" ="label_context",
+                "Wrap lines" ="label_wrap_gen"),
+                selected="label_both"),
+              conditionalPanel(
+                condition = "input.facetlabeller== 'label_wrap_gen'  " ,
+              sliderInput("labelwrapwidth", "N Characters to Wrap Labels:",
+                          min=5, max=100, value=c(25),step=1),
+              checkboxInput('facetwrapmultiline', 'Strip labels on multiple lines?',
+                            value=FALSE)
+              ),  
+              selectizeInput(  "stripplacement", "Strip Placement:",
+                               choices = c("inside","outside"),
+                               options = list(  maxItems = 1 )  ),
+              selectInput('facetordering' ,'Facet Ordering:',c(
+                "Top to Bottom, Left to Right Ordering like a Table" ="table",
+                "Bottom to Top, Left to Right Ordering like a Plot" ="plot"),
+                selected="table"),
               checkboxInput('facetwrap', 'Use facet_wrap?'),
               conditionalPanel(
                 condition = "input.facetwrap" ,
-                checkboxInput('facetwrapmultiline', 'facet_wrap strip labels on multiple lines?',value=FALSE)
-              ),
-              conditionalPanel(
-                condition = "input.facetwrap" ,
+                selectInput('stripposition', label ='Strip Position',
+                            choices=c("left", "right", "bottom", "top"),
+                            multiple=FALSE, selectize=TRUE,selected="top"),
                 checkboxInput('customncolnrow', 'Control N columns an N rows?')
               ),
               conditionalPanel(
@@ -374,36 +426,10 @@ fluidPage(
                 numericInput("wrapncol",label = "N columns",value =NA,min=1,max =10) ,
                 numericInput("wrapnrow",label = "N rows",value = NA,min=1,max=10) 
                 ),
-              colourpicker::colourInput("stripbackgroundfillx",
-                                        "X Strip Background Fill:",
-                                        value="#E5E5E5",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("stripbackfillresetx", "Reset X Strip Background Fill"),
-                   style="text-align: right"),
-              colourpicker::colourInput("stripbackgroundfilly",
-                                        "Y Strip Background Fill:",
-                                        value="#E5E5E5",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("stripbackfillresety", "Reset Y Strip Background Fill"),
-                   style="text-align: right"),
-              
-              colourpicker::colourInput("striptextcolourx",  "X Text Colour:",
-                                        value="black",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              colourpicker::colourInput("striptextcoloury",  "Y Text Colour:",
-                                        value="black",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              
-              
-              selectizeInput(  "stripplacement", "Strip Placement:",
-                               choices = c("inside","outside"),
-                               options = list(  maxItems = 1 )  ),
-              
               sliderInput("panelspacingx", label = "Facets X Spacing:",
                           min = 0, max = 2, value = 0.25, step = 0.05),
               sliderInput("panelspacingy", label = "Facets Y Spacing:",
                           min = 0, max = 2, value = 0.25, step = 0.05)
-              
               ) ,
             
             tabPanel(
@@ -482,12 +508,7 @@ fluidPage(
             tabPanel(
               "Additional Themes Options",
               sliderInput("themebasesize", "Theme Size (affects all text except facet strip):", min=1, max=100, value=c(16),step=1),
-              sliderInput("striptextsizex", "X Strip Text Size: (zero to hide)",
-                          min=0, max=100, value=c(16),step=0.5),
-              sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
-                          min=0, max=100, value=c(16),step=0.5),
- 
-              radioButtons("themecolorswitcher", "Discrete Color and Fill Scales:",
+                            radioButtons("themecolorswitcher", "Discrete Color and Fill Scales:",
                            c("Tableau 10"  = "themetableau10",
                              "Tableau 20"  = "themetableau20",
                              "Color Blind" = "themecolorblind",
@@ -524,25 +545,40 @@ fluidPage(
               uiOutput('userdefinedlinetype'),
               
               radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
-                           c("ggplot gradient2"  = "RedWhiteBlue",
+                           c("Red White Blue"  = "RedWhiteBlue",
                              "Red White Green"  = "RedWhiteGreen",
                              "ggplot default" = "themeggplot",
                              "viridis" = "themeviridis",
                              "User defined" = "themeuser")
                            ,inline=TRUE),
-              uiOutput('userdefinedcontcolor'),
-              conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                               actionButton("userdefinedcontcolorreset", "Back to starting colours", icon = icon("undo") )
+              conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                                             input.themecontcolorswitcher=='RedWhiteGreen'" ,
+                              colourpicker::colourInput(
+                                 "midcolor",
+                                 "Midpoint Color",
+                                 value ="white",
+                                 showColour = "both",
+                                 allowTransparent = FALSE,returnName = TRUE)
               ),
-              colourpicker::colourInput(
-                "midcolor",
-                "Midpoint Color",
-                value ="white",
-                showColour = "both",
-                allowTransparent = FALSE,returnName = TRUE),
+              conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                                             input.themecontcolorswitcher=='RedWhiteGreen'|
+                                             input.themecontcolorswitcher=='themeuser'" ,
+                       numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
+                                            value = 0)
+              ),
               
-              numericInput("colormidpoint", "Continuous Color and Fill Midpoint",value = 0),
+              # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+              #                  gradientInputUI("gradientcol", "100%", "www"),
+              #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
+              #                  ),
               
+              
+              conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                               uiOutput('userdefinedcontcolor'),
+                               actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
+                               
+              ),
+
               checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE) , 
               checkboxInput('themebw', 'Use Black and White Theme ?',value=TRUE),
               colourpicker::colourInput("majorgridlinescol", "Major Grid Lines Color:",
@@ -556,17 +592,34 @@ fluidPage(
                                         showColour = "both",
                                         allowTransparent=TRUE,returnName=TRUE),
               div( actionButton("minorgridlinescolreset", "Reset Minor Grid Lines Color"), style="text-align: right"),
-              
-              checkboxInput('rmmajorgridlines', 'Remove Major Grid Lines ?',value=FALSE),
-              checkboxInput('rmminorgridlines', 'Remove Minor Grid Lines ?',value=FALSE),
-              
-              checkboxInput('rmxaxistickslabels', 'Remove X axis ticks and labels ?',value=FALSE),
-              checkboxInput('rmyaxistickslabels', 'Remove Y axis ticks and labels ?',value=FALSE),
-              
               checkboxInput('themeaspect', 'Use custom aspect ratio ?')   ,  
               conditionalPanel(condition = "input.themeaspect" , 
                                numericInput("aspectratio",label = "Y/X ratio",
-                                            value = 1,min=0.1,max=10,step=0.01)) 
+                                            value = 1,min=0.1,max=10,step=0.01)),
+              inline_ui(
+                numericInput("margintop",label = "Plot Top Margin",
+                             value = 0,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("marginleft",label = "Plot Left Margin",
+                             value = 5.5,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("marginright",label = "Plot Right Margin",
+                             value = 5.5,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("marginbottom",label = "Plot Bottom Margin",
+                             value = 0,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("legendtop",label = "Legend Top Margin",
+                             value = 0,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("legendleft",label = "Legend Left Margin",
+                             value = 5.5,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("legendright",label = "Legend Right Margin",
+                             value = 5.5,min=0,max=NA,width='120px')),
+              inline_ui(
+                numericInput("legendbottom",label = "Legend Bottom Margin",
+                             value = 0,min=0,max=NA,width='120px'))
               ) #tabpanel
             )#tabsetpanel
       ), # tabpanel
@@ -1426,13 +1479,19 @@ fluidPage(
                          checkboxInput('addcorrcoeffignoregroup',"Ignore Mapped Group ?", value=TRUE),
                          radioButtons("geomcorr", "Corr Label Geom:",
                                       c("text" = "text",
-                                        "auto text repel" = "text_repel"),selected = "text_repel" ),
+                                        "auto text repel" = "text_repel"),selected = "text_repel" )
                          
-                         conditionalPanel( condition = "input.geomcorr=='text'" ,
-                                           numericInput("cortextxpos",label = "x position",value =0),
-                                           numericInput("cortextypos",label = "y position",value =0)
+                  ),
+                  column(3,hr(),
+                         conditionalPanel(
+                           " input.addcorrcoeff ",
+                           conditionalPanel( condition = "input.geomcorr=='text'" ,
+                                             numericInput("cortextxpos",label = "Correlation x position",
+                                                          value =0),
+                                             numericInput("cortextypos",label = "Correlation y position",
+                                                          value =0)
+                                             )
                          )
-                         
                   ),
                   column(3,hr(),
                          conditionalPanel(
@@ -1442,12 +1501,9 @@ fluidPage(
                                                    "kendall"= "kendall",
                                                    "spearman"= "spearman"
                                        ) ,
-                                       selected = "pearson"))
-                  ),
-                  column(3,hr(),
-                         conditionalPanel(
-                           " input.addcorrcoeff ",
-                           checkboxInput('addcorrcoeffpvalue',"Show R p-value?", value=FALSE))
+                                       selected = "pearson"),
+                           checkboxInput('addcorrcoeffpvalue',"Show R p-value?", value=FALSE)
+                         )
                   ),
                   column(3,hr(),
                          conditionalPanel(

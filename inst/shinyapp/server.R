@@ -7,6 +7,33 @@ function(input, output, session) {
     updateTable = FALSE  # whether to manually update the dstats table
   )
   
+  # gradient <- callModule(gradientInput, "gradientcol",
+  #                        init_col =c("#832424","white","#3A3A98"),
+  #            allow_modify = FALSE, col_expand = TRUE) 
+  
+  # gradientTableData <- reactive({
+  #   df <- gradient$result()
+  # }
+  # )
+  # observeEvent(input$gradientreset, {
+  #   gradient$reset()
+  # })
+  observeEvent(input$userdefinedcontcolorreset, {
+    cols <- c(muted("red"),"white",muted("blue"))
+    updateColourInput(session = session,
+                      inputId = paste0("colcont1"),
+                      value = cols[1]
+    )
+    updateColourInput(session = session,
+                      inputId = paste0("colcont2"),
+                      value = cols[2]
+    )
+    updateColourInput(session = session,
+                      inputId = paste0("colcont3"),
+                      value = cols[3]
+    )
+  })
+  
   mockFileUpload <- function(name) {
     shinyjs::runjs(paste0('$("#datafile").closest(".input-group").find("input[type=\'text\']").val(\'', name, '\')')) 
     shinyjs::runjs('$("#datafile_progress").removeClass("active").css("visibility", "visible"); $("#datafile_progress .progress-bar").width("100%").text("Upload complete")')
@@ -1968,14 +1995,20 @@ function(input, output, session) {
           showColour = "both",
           allowTransparent = FALSE,returnName = TRUE),
         
-        
         colourpicker::colourInput(
           "colcont2",
+          "Midpoint Color",
+          value ="white",
+          showColour = "both",
+          allowTransparent = FALSE,returnName = TRUE),
+        
+        colourpicker::colourInput(
+          "colcont3",
           "Ending Color",
           value =muted("blue"),
           showColour = "both",
           allowTransparent = FALSE,returnName = TRUE)
-              )
+  )
       }
     })
   
@@ -2014,20 +2047,8 @@ function(input, output, session) {
       )
     })
   })
-  
-  observeEvent(input$userdefinedcontcolorreset, {
-    cols <- c(muted("red"),muted("blue"))
-    updateColourInput(session = session,
-                      inputId = paste0("colcont1"),
-                      value = cols[1]
-                      )
-                      
-    updateColourInput(session = session,
-                      inputId = paste0("colcont2"),
-                      value = cols[2]
-    )
-  })
-  
+
+
   observe({
     facet_choices <- unique(c(
       input$facetcolextrain,
@@ -2083,39 +2104,55 @@ function(input, output, session) {
     if (input$themecontcolorswitcher=="RedWhiteBlue"){
       
       scale_colour_continuous<- function(...) 
-        scale_colour_gradient2(..., low = muted("red"), mid = input$midcolor,
-                               high = muted("blue"), midpoint = input$colormidpoint, space = "Lab",
+        scale_colour_gradient2(..., 
+                               low = muted("red"), 
+                               mid = input$midcolor,
+                               high = muted("blue"),
+                               midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
       
       scale_fill_continuous<- function(...) 
-        scale_fill_gradient2(..., low = muted("red"), mid = input$midcolor,
-                               high = muted("blue"), midpoint = input$colormidpoint, space = "Lab",
+        scale_fill_gradient2(...,
+                             low = muted("red"),
+                             mid = input$midcolor,
+                               high = muted("blue"),
+                             midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
     }
     if (input$themecontcolorswitcher=="RedWhiteGreen"){
       
       scale_colour_continuous <- function(...) 
-        scale_colour_gradient2(..., low = muted("red"), mid = input$midcolor,
-                               high = muted("darkgreen"), midpoint = input$colormidpoint, space = "Lab",
+        scale_colour_gradient2(..., low = muted("red"),
+                               mid = input$midcolor,
+                               high = muted("darkgreen"),
+                               midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
       
       scale_fill_continuous <- function(...) 
-        scale_fill_gradient2(..., low = muted("red"), mid = input$midcolor,
-                               high = muted("darkgreen"), midpoint = input$colormidpoint, space = "Lab",
-                               na.value = "grey50", guide = "colourbar")
+        scale_fill_gradient2(...,
+                             low = muted("red"),
+                             mid = input$midcolor,
+                            high = muted("darkgreen"),
+                            midpoint = input$colormidpoint, space = "Lab",
+                             na.value = "grey50", guide = "colourbar")
       
     }
     
     if (input$themecontcolorswitcher=="themeuser"){
-      
       scale_colour_continuous <- function(...) 
-        scale_colour_gradient2(..., low = input$colcont1 , mid = input$midcolor,
-                               high =     input$colcont2, midpoint = input$colormidpoint, space = "Lab",
+        scale_colour_gradient2(...,
+                               low = input$colcont1,,#gradientTableData()[1,1],
+                               mid = input$colcont2,#gradientTableData()[2,1],
+                               high =input$colcont3,#gradientTableData()[3,1],
+                               midpoint = input$colormidpoint, space = "Lab",
                                na.value = "grey50", guide = "colourbar")
       
       scale_fill_continuous <- function(...) 
-        scale_fill_gradient2(..., low = input$colcont1, mid = input$midcolor,
-                             high = input$colcont2, midpoint = input$colormidpoint, space = "Lab",
+        scale_fill_gradient2(...,
+                             low = input$colcont1,,#gradientTableData()[1,1],
+                             mid = input$colcont2,#gradientTableData()[2,1],
+                             high = input$colcont3,#gradientTableData()[3,1],
+                             midpoint = input$colormidpoint, space = "Lab",
                              na.value = "grey50", guide = "colourbar")
       
     }
@@ -4007,12 +4044,14 @@ function(input, output, session) {
           if (input$Median!="None" && input$medianvalues )  {
             p <-   p   +
               stat_summary(fun.data = median.n, aes(group=NULL),geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",colour=mediancoll,position = eval(parse(text=input$positionmedian)),
+                           fun.y = median, fontface = "bold",colour=mediancoll,
+                           position = eval(parse(text=input$positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)}
           if (input$Median!="None" && input$medianN)  {
             p <-   p   +
               stat_summary(fun.data = give.n, aes(group=NULL), geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold", colour=mediancolp,position = eval(parse(text=input$positionmedian)),
+                           fun.y = median, fontface = "bold", colour=mediancolp,
+                           position = eval(parse(text=input$positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
           
@@ -4123,16 +4162,19 @@ function(input, output, session) {
           if(!input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label = paste(..r.label..,  sep = "~`,`~")),
+                       aes(label = paste("italic(R)", ..r.., sep = "~`=`~")),
                        position = position_identity(),size=3.88,
-                       method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
+                       method = input$corrtype,
+                       geom = input$geomcorr,
+                       segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value)
             
           }
           if(input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label = paste(..r.label..,..p.label..,  sep = "~`,`~") ),
+                       aes(label = paste("list(italic(R)~`=`~",..r..,",italic(p)~`=`~", ..p..,")",sep="")
+                           ),
                        position = position_identity(),size=3.88,
                        method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value)
@@ -4146,8 +4188,8 @@ function(input, output, session) {
           if(!input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label = paste(..r.label..,  sep = "~`,`~") ,group=NULL),
-                       position = position_identity(),size=3.88,
+                       aes(label = paste("italic(R)", ..r.., sep = "~`=`~"),group=NULL),
+                       position  = position_identity(),size=3.88,
                        method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value)
             
@@ -4157,7 +4199,8 @@ function(input, output, session) {
           if(input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label = paste(..r.label..,..p.label..,  sep = "~`,`~") ,group=NULL),
+                       aes(label = paste("list(italic(R)~`=`~",..r..,",italic(p)~`=`~", ..p..,")",sep="")
+                           ,group=NULL),
                        position = position_identity(),size=3.88,
                        method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value)
@@ -4177,7 +4220,7 @@ function(input, output, session) {
           if(!input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label =paste(..r.label..,  sep = "~`,`~")),
+                       aes(label =paste("italic(R)", ..r.., sep = "~`=`~")),
                        position = position_identity(),size=3.88,
                        method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value,
@@ -4187,7 +4230,7 @@ function(input, output, session) {
           if(input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label = paste(..r.label..,..p.label..,  sep = "~`,`~") ),
+                       aes(label = paste("list(italic(R)~`=`~",..r..,",italic(p)~`=`~", ..p..,")",sep="") ),
                        position = position_identity(),size=3.88,
                        method = input$corrtype ,geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value,
@@ -4202,7 +4245,7 @@ function(input, output, session) {
           if(!input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label =paste(..r.label..,  sep = "~`,`~"),group=NULL),
+                       aes(label =paste("italic(R)", ..r.., sep = "~`=`~"),group=NULL),
                        position = position_identity(),size=3.88,
                        method = input$corrtype, geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value,
@@ -4211,7 +4254,8 @@ function(input, output, session) {
           if(input$addcorrcoeffpvalue){
             p <- p +
               stat_cor(data=plotdata,
-                       aes(label =paste(..r.label..,..p.label..,  sep = "~`,`~"), group=NULL),
+                       aes(label =paste("list(italic(R)~`=`~",..r..,",italic(p)~`=`~", ..p..,")",sep="")
+                           , group=NULL),
                        position = position_identity(),size=3.88,
                        method = input$corrtype, geom = input$geomcorr,segment.color=NA,direction="y",
                        label.x = label.x.value, label.y = label.y.value,
@@ -4394,6 +4438,11 @@ function(input, output, session) {
             risktabledatag<- gather(risktabledata,key,value, !!!input$risktablevariables ,factor_key = TRUE)
             risktabledatag$keynumeric<- - input$nriskpositionscaler* as.numeric(as.factor(risktabledatag$key)) 
           }
+          if(is.null(input$risktablevariables) ){
+            risktabledatag<- gather(risktabledata,key,value, "n.risk" ,factor_key = TRUE)
+            risktabledatag$keynumeric<- - input$nriskpositionscaler* as.numeric(as.factor(risktabledatag$key)) 
+          }
+          
           if(!is.null(fitsurv$strata) | is.matrix(fitsurv$surv))  {
             .table <- as.data.frame(summary(fitsurv)$table)
           } else {
@@ -4421,11 +4470,25 @@ function(input, output, session) {
             p  <- p +
               geom_text(data=risktabledatag,aes(x=time,label=value,y=keynumeric,time=NULL,status=NULL ),show.legend = FALSE,
                         position =   position_dodgev(height =input$nriskpositiondodge)
-              )+
-              scale_y_continuous(breaks =c(unique(risktabledatag$keynumeric),c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1) ), 
-                                 labels= c(as.vector(input$risktablevariables),
-                                           c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1") ) )
+              )
             
+            
+            
+            if(!is.null(input$risktablevariables)){
+              p  <- p +
+                scale_y_continuous(breaks =c(unique(risktabledatag$keynumeric),c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1) ), 
+                                   labels= c(as.vector(input$risktablevariables),
+                                             c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1") ) )
+              
+            }
+            if(is.null(input$risktablevariables)){
+              p  <- p +
+                scale_y_continuous(breaks =c(unique(risktabledatag$keynumeric),c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1) ), 
+                                   labels= c("n.risk",
+                                             c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1") ) )
+              
+            }
+
           }
           
           if (input$kmignorecol){
@@ -4563,16 +4626,32 @@ function(input, output, session) {
         else {
           input$facetswitch
         }
-        p <-
-          p + facet_grid(
-            facets,
-            scales = input$facetscalesin,
-            space = input$facetspace,
-            switch = facetswitch,
-            labeller = input$facetlabeller,
-            margins = facetmargins(),
-            as.table = ASTABLE
-          )
+        
+        if (input$facetlabeller != "label_wrap_gen"){
+          p <-
+            p + facet_grid(
+              facets,
+              scales = input$facetscalesin,
+              space = input$facetspace,
+              switch = facetswitch,
+              labeller =input$facetlabeller,
+              margins = facetmargins(),
+              as.table = ASTABLE
+            ) 
+        }
+        if (input$facetlabeller == "label_wrap_gen"){
+          p <-
+            p + facet_grid(
+              facets,
+              scales = input$facetscalesin,
+              space = input$facetspace,
+              switch = facetswitch,
+              labeller =label_wrap_gen(width = input$labelwrapwidth,
+                                       multi_line = input$facetwrapmultiline),
+              margins = facetmargins(),
+              as.table = ASTABLE
+            ) 
+        }
       }
       
       
@@ -4605,14 +4684,30 @@ function(input, output, session) {
             input$facetrowin,
             input$facetrowextrain
           ) != "."]
+        if (input$facetlabeller != "label_wrap_gen"){
+          p <- p + facet_wrap(
+            facetgridvariables,
+            scales = input$facetscalesin,
+            ncol = input$wrapncol,
+            nrow = input$wrapnrow,
+            labeller = input$facetlabeller,
+            strip.position = input$stripposition,
+            as.table = ASTABLE
+          )
+        }
+        if (input$facetlabeller == "label_wrap_gen"){
         p <- p + facet_wrap(
           facetgridvariables,
           scales = input$facetscalesin,
           ncol = input$wrapncol,
           nrow = input$wrapnrow,
-          labeller = label_wrap_gen(width = 25, multi_line = multiline),
+          labeller = label_wrap_gen(width = input$labelwrapwidth,
+                                    multi_line = multiline),
+          strip.position = input$stripposition,
           as.table = ASTABLE
         )
+        }
+        
         
       }
       
@@ -5067,16 +5162,36 @@ function(input, output, session) {
         theme_gray(base_size=input$themebasesize)
     }
     
+    plot_margin   <- c(input$margintop,input$marginright,
+                    input$marginbottom,input$marginleft)
+    legend_margin <- c(input$legendtop,input$legendright,
+                     input$legendbottom,input$legendleft)
+    plot_margin[ which(is.na(plot_margin) ) ] <- 0
+    legend_margin[ which(is.na(legend_margin) ) ] <- 0
     
-    p <-    p+theme(
-      legend.position=input$legendposition,
-      legend.box=input$legendbox,
-      legend.direction=input$legenddirection,
+    
+    if( input$legendposition=="custom") {
+      legendpositiontheme <-  c(input$legendpositionx,
+                                input$legendpositiony)
+      legendpositiontheme[ which(is.na(legendpositiontheme) ) ] <- 0
+    }
+    if( input$legendposition!="custom") {
+      legendpositiontheme <-  input$legendposition
+    } 
+    p <-    p + theme(
       panel.background = element_rect(fill=input$backgroundcol),
-      
+      legend.position=legendpositiontheme,
+      legend.box=input$legendbox,
+      legend.background = element_rect(fill=input$legendbackground),
+      legend.key = element_rect(fill=input$legendkey),
+      legend.direction=input$legenddirection,
       legend.spacing.x = ggplot2::unit(input$legendspacex*11, "pt"),
-      legend.margin = ggplot2::margin(t = 0, r = 0.1, l = -0.1, b = 0, unit='cm')
-      
+      legend.margin = ggplot2::margin(t = legend_margin[1],r = legend_margin[2],
+                                      b = legend_margin[3],l = legend_margin[4],
+                                      unit='pt'),
+      plot.margin =  ggplot2::margin(t = plot_margin[1],r = plot_margin[2],
+                                     b = plot_margin[3],l = plot_margin[4],
+                                     unit='pt')
     )
     
     if (input$labelguides)

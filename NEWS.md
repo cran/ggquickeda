@@ -1,3 +1,13 @@
+# ggquickeda 0.1.6
+* withheld gradientInput addition (shinyjqui issue)
+* fixed a bug in risktable when nothing was selected
+* added controls for plot margins
+* added controls for legend margins
+* strip.position for facet_wrap and more labeller options
+* added parsed x and y axis titles
+* custom position for legends and specification of legend and items background fill
+* updated intro vignette
+
 # ggquickeda 0.1.5
 * let ggpairs plots reflect custom color scales
 * update the emax smoother to add e0
@@ -17,7 +27,7 @@
 * added smooth emax model via nls and parameter values
 * added parameter values for lm fit and made text size adjustable
 * viridis and custom continuous color scale
-* added possibility to divide multipe columns by a specified one (e.g. dose normalization)
+* added possibility to divide multiple columns by a specified one (e.g. dose normalization)
 * "Treat as Categories:" now accepts character variables in addition to numeric.
 * "Treat as Numeric:" added to enable converting columns read as factors.
 * updated the docs for geom and stat_km stat_kmband stat_kmticks.
