@@ -2,19 +2,23 @@ fluidPage(
   useShinyjs(),
   tags$link(rel = "stylesheet", href = "app.css"),
   tags$link(rel = "stylesheet", href = "table1-style.css"),
-  titlePanel("Welcome to ggquickeda!"),
+  titlePanel(paste("Welcome to ggquickeda!",utils::packageVersion("ggquickeda"))),
   sidebarLayout(
     sidebarPanel(
       tabsetPanel(
         tabPanel(
           "Inputs", 
-          br(),
+          tags$style(".shiny-file-input-progress {margin-bottom: 0px;margin-top: 0px}"),
+          tags$style(".form-group {margin-bottom: 0px;margin-top: 0px}"),
           tags$div(
-            tags$strong("Choose csv file to upload"),
-            "or", actionLink("sample_data_btn", "use sample data")
+            tags$strong("Click Browse to choose csv file to upload with"),
+            inline_ui(radioButtons("fileseparator", NULL,
+                                   choices = c("comma (,)" = ",","or semicolon (;)" = ";"),
+                                   selected = ",", inline = TRUE)),
+            "separators, or",actionLink("sample_data_btn", "use sample data")
           ),
-          fileInput("datafile", NULL,
-                    multiple = FALSE, accept = c("csv")),
+          fileInput("datafile", NULL, multiple = FALSE, accept = c("csv")),
+          checkboxInput("stringasfactor", "Character Variables as Factors?", TRUE),
           uiOutput("ycol"),
           checkboxInput("show_pairs", "Plot a matrix of all Y variables", value = FALSE),
           conditionalPanel(
@@ -147,7 +151,13 @@ fluidPage(
               textInput('xlab', 'X axis label', value = "") ,
               textInput('title', 'Plot Title', value = "") ,
               textInput('subtitle', 'Plot Subtitle', value = "") ,
+              radioButtons("titleposition", "Title Positioning:",
+                           c("Panel" = "panel",
+                             "Plot" = "plot"), inline = TRUE),
               textInput('caption', 'Plot Caption', value = "") ,
+              radioButtons("captionposition", "Caption Positioning:",
+                           c("Panel" = "panel",
+                             "Plot" = "plot"), inline = TRUE),
               hr(),
               
               fluidRow(
@@ -194,10 +204,10 @@ fluidPage(
                                textInput("xaxisminorbreaks",label ="X axis minor Breaks",
                                          value = as.character(paste(6,18,sep=",") ))
                                ),
-              conditionalPanel(condition = "input.customxticks & input.xaxisformat=='default' " , 
+              conditionalPanel(condition = "input.customxticks && input.xaxisformat=='default' " , 
                                checkboxInput('customxtickslabel', 'Custom X axis labels ?', value = FALSE)
               ),
-               conditionalPanel(condition = "input.customxticks & input.customxtickslabel & input.xaxisformat=='default' " , 
+               conditionalPanel(condition = "input.customxticks && input.customxtickslabel && input.xaxisformat=='default' " , 
                                textInput("xaxislabels",label ="X axis Labels",
                                          value = as.character(paste("A","B","C" ,sep=",") )
                                )
@@ -209,7 +219,7 @@ fluidPage(
                                textInput("yaxisminorbreaks",label ="Y axis minor Breaks",
                                          value = as.character(paste(0.5,1.5,sep=",") ))
               ),
-              conditionalPanel(condition = "input.customyticks & input.yaxisformat=='default' " , 
+              conditionalPanel(condition = "input.customyticks && input.yaxisformat=='default' " , 
                                checkboxInput('customytickslabel', 'Custom Y axis labels ?', value = FALSE)
               ),
               conditionalPanel(condition = "input.customyticks & input.customytickslabel & input.yaxisformat=='default' " , 
@@ -217,6 +227,8 @@ fluidPage(
                                          value = as.character(paste("A","B","C" ,sep=",") )
                                )
               ),
+              checkboxInput('rmxaxistickslabels', 'Remove X axis ticks and labels ?',value=FALSE),
+              checkboxInput('rmyaxistickslabels', 'Remove Y axis ticks and labels ?',value=FALSE),
               checkboxInput('annotatelogticks', 'Add Log Tick Annotations ?', value = FALSE),
               conditionalPanel(condition = "input.annotatelogticks",
                                selectInput('logsides', label ='Log Tick Sides',
@@ -225,13 +237,7 @@ fluidPage(
                                                      "Right"="r",
                                                      "Bottom"="b"),
                                            multiple=TRUE, selectize=TRUE,selected="l")
-              ),
-              
-              checkboxInput('rmmajorgridlines', 'Remove Major Grid Lines ?',value=FALSE),
-              checkboxInput('rmminorgridlines', 'Remove Minor Grid Lines ?',value=FALSE),
-              
-              checkboxInput('rmxaxistickslabels', 'Remove X axis ticks and labels ?',value=FALSE),
-              checkboxInput('rmyaxistickslabels', 'Remove Y axis ticks and labels ?',value=FALSE)
+              )
             ),
             tabPanel(
               "Graph Size/Zoom",
@@ -267,8 +273,36 @@ fluidPage(
                 column(6,
                        conditionalPanel(condition = "input.yaxiszoom=='useryzoom' ",uiOutput("uppery")) ),
                 column(12,
+                       inline_ui(
+                         numericInput("xexpansion_l_add",label = "x expansion left additive",
+                                      value = 0,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("xexpansion_r_add",label = "x expansion right additive",
+                                      value = 0,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("xexpansion_l_mult",label = "x expansion left multiplicative",
+                                      value = 0.05,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("xexpansion_r_mult",label = "x expansion right multiplicative",
+                                      value = 0.05, min=0,max=NA,width='120px'))
+                       ),
+                column(12,
+                       inline_ui(
+                         numericInput("yexpansion_l_add",label = "y expansion bottom additive",
+                                      value = 0,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("yexpansion_r_add",label = "y expansion top additive",
+                                      value = 0,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("yexpansion_l_mult",label = "y expansion bottom multiplicative",
+                                      value = 0.05,min=0,max=NA,width='120px')),
+                       inline_ui(
+                         numericInput("yexpansion_r_mult",label = "y expansion top multiplicative",
+                                      value = 0.05, min=0,max=NA,width='120px'))
+                ),
+                column(12,
                        conditionalPanel(condition = "input.yaxiszoom!='noyzoom' | input.xaxiszoom!='noxzoom' ",
-                                        checkboxInput('expand', 'Expand X/Y axis Range ?', value = TRUE)
+                                        checkboxInput('expand', 'Allow Coordinate Expansion?', value = TRUE)
                        )
                 )
               ) # fluidrow
@@ -276,161 +310,261 @@ fluidPage(
             ),#tabpanel zoom
             
             tabPanel(
-              "Background Color and Legend(s)",
-              colourpicker::colourInput(
-                "backgroundcol","Background Color",value =  "white",
-                showColour = "both",allowTransparent = FALSE,returnName=TRUE),
+              "Customization of Legend(s)",
               selectInput('legendposition', label ='Legend Position',
                           choices=c("left", "right", "bottom", "top","none","custom"),
                           multiple=FALSE, selectize=TRUE,selected="bottom"),
+              
               conditionalPanel(
                 condition = "input.legendposition=='custom'",
                 inline_ui(
                   numericInput("legendpositionx",label = "Legend X Position",
-                               value = 0.5,min=0,max=1,width='50%')),
+                               value = 0.5,min=0,max=1,width='100%')),
                 inline_ui(
                   numericInput("legendpositiony",label = "Legend Y Position",
-                               value = 0.5,min=0,max=1,width='50%'))),
-              selectInput('legenddirection', label ='Layout of Items in Legends',
+                               value = 0.5,min=0,max=1,width='100%'))),
+              br(),
+              selectInput('legendjustificationh', label ='Horizontal Legend Justification',
+                          choices=c("left","center", "right"),
+                          multiple=FALSE, selectize=TRUE,selected="center"),
+              selectInput('legendjustificationv', label ='Vertical Legend Justification',
+                          choices=c("bottom","center","top"),
+                          multiple=FALSE, selectize=TRUE,selected="center"),
+              
+               selectInput('legenddirection', label ='Layout of Items in Legends',
                           choices=c("horizontal", "vertical"),
                           multiple=FALSE, selectize=TRUE,selected="horizontal"),
               selectInput('legendbox', label ='Arrangement of Multiple Legends ',
                           choices=c("horizontal", "vertical"),
                           multiple=FALSE, selectize=TRUE,selected="vertical"),
+              selectInput('legendboxjust', label ='Legend Box Justification',
+                          choices=c("left", "right","center", "bottom", "top"),
+                          multiple=FALSE, selectize=TRUE,selected="center"),
               colourpicker::colourInput(
                 "legendbackground","Legend Background Fill",value =  "white",
-                showColour = "both",allowTransparent = TRUE,returnName=TRUE),
+                showColour = "both",allowTransparent = TRUE, returnName = TRUE),
               colourpicker::colourInput(
                 "legendkey","Legend Item Fill",value =  "white",
                 showColour = "both",allowTransparent = TRUE,returnName=TRUE),
               checkboxInput('sepguides', 'Separate Legend Items for Median/PI ?',value = TRUE),       
               checkboxInput('labelguides', 'Hide the Names of the Legend Items ?',value = FALSE),
-              sliderInput("legendspacex", "Multiplier for Space between Legend Items",
+              sliderInput("legendspacex", "Multiplier for Space between Legend Items (x)",
                           min = 0, max = 3, step = 0.1, value = 1),
-              checkboxInput('customlegendtitle', 'Customization of Legend Titles,
-                            number of columns of items and reversing the legend items ?',
+              sliderInput("legendspacey", "Multiplier for Space between Legend Items (y)",
+                          min = 0, max = 3, step = 0.1, value = 1),
+              checkboxInput('customlegendtitle', 'Customization of Legend(s): e.g. change legend title,
+                            number of legend keys columns, override transparency, ordering of multiple legends and more',
                             value = FALSE),
-              conditionalPanel(
-                condition = "input.customlegendtitle",
-                textInput("customcolourtitle", label ="Colour Legend Title",value="colour"),
-                numericInput("legendncolcol",label = "Colour Legend N columns",value =1,min=1,max =10) ,
-                checkboxInput('legendrevcol', 'Reverse Colour Legend ?',value = FALSE),
-                checkboxInput('legendalphacol', 'Override Colour Transparency ?',value = TRUE),
-                textInput("customfilltitle", label ="Fill Legend Title",value="fill"),
-                numericInput("legendncolfill",label = "Fill Legend N columns",value =1,min=1,max =10) ,
-                checkboxInput('legendrevfill', 'Reverse Fill Legend?',value = FALSE),
-                checkboxInput('legendalphafill', 'Override Fill Transparency ?',value = FALSE),
-                textInput("customsizetitle", label ="Size Legend Title",value="size"),
-                numericInput("legendncolsize",label = "Size Legend N columns",value =1,min=1,max =10) ,
-                checkboxInput('legendrevsize','Reverse Size Legend ?',value = FALSE),
-                
-                textInput("customshapetitle", label ="Shape Legend Title",value="shape"),
-                numericInput("legendncolshape",label = "Shape Legend N columns",value =1,min=1,max =10) ,
-                checkboxInput('legendrevshape','Reverse Shape Legend ?',value = FALSE),
-                
-                textInput("customlinetypetitle", label ="Linetype Legend Title",value="linetype"),
-                numericInput("legendncollinetype",label = "Linetype Legend N columns",value =1,min=1,max =10) ,
-                checkboxInput('legendrevlinetype','Reverse Linetype Legend ?',value = FALSE),
-                
-                
-                selectizeInput(
-                  'legendordering',
-                  label = paste("Drag/Drop to reorder","Colour, Fill, Size, Shape Legends"),
-                  choices = c("colour","fill","size","shape","linetype"),
-                  selected = c("colour","fill","size","shape","linetype"),
-                  multiple=TRUE,  options = list(
-                    plugins = list('drag_drop')
+              tabsetPanel(
+                tabPanel(
+                  "Colour Legend",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    textInput("customcolourtitle", label ="Colour Legend Title",value="colour"),
+                    numericInput("legendncolcol",label = "Colour Legend N columns", value =1, min=1, max = 10) ,
+                    checkboxInput('legendrevcol', 'Reverse Colour Legend ?',value = FALSE),
+                    checkboxInput('legendalphacol', 'Override Colour Transparency ?',value = TRUE)
                   )
                 ),
-                checkboxInput('removelegend','Remove Legend if deleted from input reordering above?',value = FALSE),
-                h6("ggplot will attempt to merge legend items that share names and mappings")
-                
-              )
+                tabPanel(
+                  "Fill Legend",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    textInput("customfilltitle", label ="Fill Legend Title",value="fill"),
+                    numericInput("legendncolfill",label = "Fill Legend N columns", value = 1, min = 1, max =10) ,
+                    checkboxInput('legendrevfill', 'Reverse Fill Legend?',value = FALSE),
+                    checkboxInput('legendalphafill', 'Override Fill Transparency ?',value = FALSE)
+                  )
+                ),
+                tabPanel(
+                  "Size Legend",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    textInput("customsizetitle", label ="Size Legend Title",value="size"),
+                    numericInput("legendncolsize",label = "Size Legend N columns",value =1,min=1,max =10) ,
+                    checkboxInput('legendrevsize','Reverse Size Legend ?',value = FALSE)
+                  )
+                ),
+                tabPanel(
+                  "Shape Legend",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    textInput("customshapetitle", label ="Shape Legend Title",value="shape"),
+                    numericInput("legendncolshape",label = "Shape Legend N columns",value =1,min=1,max =10) ,
+                    checkboxInput('legendrevshape','Reverse Shape Legend ?',value = FALSE)
+                  )
+                ),
+                tabPanel(
+                  "Linetype Legend",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    textInput("customlinetypetitle", label ="Linetype Legend Title",value="linetype"),
+                    numericInput("legendncollinetype",label = "Linetype Legend N columns",value =1,min=1,max =10) ,
+                    checkboxInput('legendrevlinetype','Reverse Linetype Legend ?',value = FALSE)
+                  )
+                ),
+                tabPanel(
+                  "Legends Ordering",
+                  conditionalPanel(
+                    condition = "input.customlegendtitle",
+                    selectizeInput(
+                      'legendordering',
+                      label = paste("Drag/Drop to reorder","Colour, Fill, Size, Shape, Linetype Legends"),
+                      choices = c("colour","fill","size","shape","linetype"),
+                      selected = c("colour","fill","size","shape","linetype"),
+                      multiple=TRUE,  options = list(
+                        plugins = list('drag_drop')
+                      )
+                    ),
+                    checkboxInput('removelegend','Remove Legend if deleted from input reordering above?',value = FALSE),
+                    h6("ggplot will attempt to merge legend items that share names, mappings and ordering position.")
+                  )
+                )
+                )
+  
             ),
             tabPanel(
               "Facets Options",
-              sliderInput("striptextsizex", "X Strip Text Size: (zero to hide)",
-                          min=0, max=100, value=c(16),step=0.5),
-              colourpicker::colourInput("striptextcolourx",  "X Text Colour:",
-                                        value="black",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              colourpicker::colourInput("stripbackgroundfillx",
-                                        "X Strip Background Fill:",
-                                        value="#E5E5E5",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("stripbackfillresetx", "Reset X Strip Background Fill"),
-                   style="text-align: right"),
-              sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
-                          min=0, max=100, value=c(16),step=0.5),
-              colourpicker::colourInput("striptextcoloury",  "Y Text Colour:",
-                                        value="black",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              colourpicker::colourInput("stripbackgroundfilly",
-                                        "Y Strip Background Fill:",
-                                        value="#E5E5E5",
-                                        showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("stripbackfillresety", "Reset Y Strip Background Fill"),
-                   style="text-align: right"),
               
-              
-              uiOutput("facetscales"),
-              selectInput('facetspace' ,'Facet Spaces:',c("fixed","free_x","free_y","free")),
-              conditionalPanel(
-                condition = "!input.facetwrap" ,
-                selectizeInput(  "facetswitch", "Facet Switch to Near Axis:",
-                                 choices = c("none","x","y","both"),
-                                 options = list(  maxItems = 1 )  ),
-                selectInput('facetmargin', 'Show facet margins?', 
-                            choices = c("None" = "none",
-                                        "All" = "all",
-                                        "Specific variables" = "some")),
-                conditionalPanel(
-                  "input.facetmargin == 'some'",
-                  selectInput('facetmargin_vars', NULL, choices = c(), multiple = TRUE,)
+              tabsetPanel(
+                tabPanel("Facet Scales, Spaces, Positioning, Ordering",
+                         uiOutput("facetscales"),
+                         selectInput('facetspace' ,'Facet Spaces:',c("fixed","free_x","free_y","free")),
+                         conditionalPanel(
+                           condition = "!input.facetwrap" ,
+                           selectizeInput(  "facetswitch", "Facet Switch to Near Axis:",
+                                            choices = c("none","x","y","both"),
+                                            options = list(  maxItems = 1 )  )
+                         ),
+                         selectizeInput(  "stripplacement", "Strip Placement:",
+                                          choices = c("inside","outside"),
+                                          options = list(  maxItems = 1 )  ),
+                         
+                         conditionalPanel(
+                           condition = "!input.facetwrap && input.stripplacement== 'outside'" ,
+                           sliderInput("stripswitchpadgrid", label = "Facets Axis Padding:",
+                                       min = 0, max = 2, value = 0.25, step = 0.05)
+                           ),
+                         conditionalPanel(
+                           condition = "input.facetwrap && input.stripplacement== 'outside'" ,
+                           sliderInput("stripswitchpadwrap", label = "Facets Axis Padding:",
+                                       min = 0, max = 2, value = 0.25, step = 0.05)
+                         ),
+                         
+                         selectInput('facetordering' ,'Facet Ordering:',c(
+                           "Top to Bottom, Left to Right Ordering like a Table" ="table",
+                           "Bottom to Top, Left to Right Ordering like a Plot" ="plot"),
+                           selected="table")
+                         
+                         ),
+                tabPanel("Facet Grid Margins",
+                         h6("The 'Show facet margins?' options are available when 'Use facet_wrap?' is not checked"),    
+                         conditionalPanel(
+                           condition = "!input.facetwrap" ,
+                           selectInput('facetmargin', 'Show facet margins?', 
+                                       choices = c("None" = "none",
+                                                   "All" = "all",
+                                                   "Specific variables" = "some")),
+                           conditionalPanel(
+                             "input.facetmargin == 'some'",
+                             selectInput('facetmargin_vars', NULL, choices = c(), multiple = TRUE,)
+                           )
+                         ), 
                 )
+                
                 ),
-              selectInput('facetlabeller' ,'Facet Label:',c(
-                "Variable(s) Name(s) and Value(s)" ="label_both",
-                "Value(s)"="label_value",
-                "Parsed Expression" ="label_parsed",
-                "Depends on Context" ="label_context",
-                "Wrap lines" ="label_wrap_gen"),
-                selected="label_both"),
-              conditionalPanel(
-                condition = "input.facetlabeller== 'label_wrap_gen'  " ,
-              sliderInput("labelwrapwidth", "N Characters to Wrap Labels:",
-                          min=5, max=100, value=c(25),step=1),
-              checkboxInput('facetwrapmultiline', 'Strip labels on multiple lines?',
-                            value=FALSE)
-              ),  
-              selectizeInput(  "stripplacement", "Strip Placement:",
-                               choices = c("inside","outside"),
-                               options = list(  maxItems = 1 )  ),
-              selectInput('facetordering' ,'Facet Ordering:',c(
-                "Top to Bottom, Left to Right Ordering like a Table" ="table",
-                "Bottom to Top, Left to Right Ordering like a Plot" ="plot"),
-                selected="table"),
-              checkboxInput('facetwrap', 'Use facet_wrap?'),
-              conditionalPanel(
-                condition = "input.facetwrap" ,
-                selectInput('stripposition', label ='Strip Position',
-                            choices=c("left", "right", "bottom", "top"),
-                            multiple=FALSE, selectize=TRUE,selected="top"),
-                checkboxInput('customncolnrow', 'Control N columns an N rows?')
-              ),
-              conditionalPanel(
-                condition = "input.customncolnrow" ,
-                h6("An error (nrow*ncol >= n is not TRUE) will show up if the total number of facets/panels
+              hr(),
+              tabsetPanel(
+                tabPanel("Facet Text Size/Angle/Face",
+                         sliderInput("striptextsizex", "X Strip Text Size: (zero to hide)",
+                                     min = 0, max = 100, step = 0.5, value = 16),
+                         sliderInput("facettextxangle", "Facet Text Angle X",
+                                     min = 0, max = 360, step = 90, value = 0),
+                         checkboxInput('boldfacettextx', "X Strip Text Bold?", value = FALSE),
+                         sliderInput("striptextsizey", "Y Strip Text Size: (zero to hide)",
+                                     min = 0, max = 100, step = 0.5, value = 16),
+                         sliderInput("facettextyangle", "Facet Text Angle Y",
+                                     min = 0, max = 360, step = 90, value = 270),
+                         checkboxInput('boldfacettexty', "Y Strip Text Bold?", value = FALSE),
+                ),
+                tabPanel("Facet Text Justification",
+                         sliderInput("x_facet_text_vjust", "Facet Text Vertical Justification X",
+                                     min = 0, max = 1, step = 0.1, value = 0.5),
+                         sliderInput("x_facet_text_hjust", "Facet Text Horizontal Justification X",
+                                     min = 0, max = 1, step = 0.1, value = 0.5),
+                         sliderInput("y_facet_text_vjust", "Facet Text Vertical Justification Y",
+                                     min = 0, max = 1, step = 0.1, value = 0.5),
+                         sliderInput("y_facet_text_hjust", "Facet Text Horizontal Justification Y",
+                                     min = 0, max = 1, step = 0.1, value = 0.5)
+                ),
+                tabPanel("Facet Text/Background Colour",
+                         colourpicker::colourInput("striptextcolourx",  "X Text Colour:",
+                                                   value="black",
+                                                   showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+                         colourpicker::colourInput("stripbackgroundfillx",
+                                                   "X Strip Background Fill:",
+                                                   value="#E5E5E5",
+                                                   showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+                         div( actionButton("stripbackfillresetx", "Reset X Strip Background Fill"),
+                              style="text-align: right"),
+                         checkboxInput('removexstrip', 'Remove X Strip Background and Outline?',
+                                       value=FALSE),
+                         
+                         colourpicker::colourInput("striptextcoloury",  "Y Text Colour:",
+                                                   value="black",
+                                                   showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+                         colourpicker::colourInput("stripbackgroundfilly",
+                                                   "Y Strip Background Fill:",
+                                                   value="#E5E5E5",
+                                                   showColour = "both",allowTransparent=TRUE,returnName=TRUE),
+                         div( actionButton("stripbackfillresety", "Reset Y Strip Background Fill"),
+                              style="text-align: right"),
+                         checkboxInput('removeystrip', 'Remove Y Strip Background and Outline?',
+                                       value=FALSE),
+                ),
+                tabPanel("Facet Labels",
+                         selectInput('facetlabeller' ,'Facet Label:',c(
+                           "Variable(s) Name(s) and Value(s)" ="label_both",
+                           "Value(s)"="label_value",
+                           "Parsed Expression" ="label_parsed",
+                           "Depends on Context" ="label_context",
+                           "Wrap lines" ="label_wrap_gen"),
+                           selected="label_both"),
+                         conditionalPanel(
+                           condition = "input.facetlabeller== 'label_wrap_gen'  " ,
+                           sliderInput("labelwrapwidth", "N Characters to Wrap Labels:",
+                                       min=5, max=100, value=c(25),step=1)
+                         ),
+                         checkboxInput('facetwrapmultiline',
+                                       'Strip labels on multiple lines?',
+                                       value = TRUE)
+                ),
+                tabPanel("Facet Wrap",
+                         checkboxInput('facetwrap', 'Use facet_wrap?'),
+                         conditionalPanel(
+                           condition = "input.facetwrap" ,
+                           selectInput('stripposition', label ='Strip Position',
+                                       choices=c("left", "right", "bottom", "top"),
+                                       multiple=FALSE, selectize=TRUE,selected="top"),
+                           checkboxInput('customncolnrow', 'Control N columns an N rows?')
+                         ),
+                         conditionalPanel(
+                           condition = "input.customncolnrow" ,
+                           h6("An error (nrow*ncol >= n is not TRUE) will show up if the total number of facets/panels
                    is greater than the product of the specified  N columns x N rows. Increase the N columns and/or N rows to avoid the error.
                    The default empty values will use ggplot automatic algorithm."),        
-                numericInput("wrapncol",label = "N columns",value =NA,min=1,max =10) ,
-                numericInput("wrapnrow",label = "N rows",value = NA,min=1,max=10) 
+                           numericInput("wrapncol",label = "N columns",value =NA,min=1,max =10) ,
+                           numericInput("wrapnrow",label = "N rows",value = NA,min=1,max=10) 
+                         )
                 ),
-              sliderInput("panelspacingx", label = "Facets X Spacing:",
-                          min = 0, max = 2, value = 0.25, step = 0.05),
-              sliderInput("panelspacingy", label = "Facets Y Spacing:",
-                          min = 0, max = 2, value = 0.25, step = 0.05)
-              ) ,
+                tabPanel("Facet Spacing",
+                         sliderInput("panelspacingx", label = "Facets X Spacing:",
+                                     min = 0, max = 2, value = 0.25, step = 0.05),
+                         sliderInput("panelspacingy", label = "Facets Y Spacing:",
+                                     min = 0, max = 2, value = 0.25, step = 0.05)
+                )
+              )
+              ),
             
             tabPanel(
               "Reference Lines/Target",
@@ -506,9 +640,99 @@ fluidPage(
               
             ),
             tabPanel(
-              "Additional Themes Options",
-              sliderInput("themebasesize", "Theme Size (affects all text except facet strip):", min=1, max=100, value=c(16),step=1),
-                            radioButtons("themecolorswitcher", "Discrete Color and Fill Scales:",
+              "Themes and Manual Scales Options",
+              sliderInput("themebasesize", "Theme Size (affects all text except facet strip):",
+                          min=1, max=100, value=c(16),step=1),
+              checkboxInput('themebw', 'Use Black and White Theme ?',value=TRUE),
+               colourpicker::colourInput(
+                "backgroundcol","Background Color",value =  "white",
+                showColour = "both",allowTransparent = TRUE,returnName=TRUE),
+              checkboxInput('panelontop', 'Place the Panel gridlines and background over the data ?',value=FALSE),
+              tabsetPanel(
+                tabPanel("Grid Lines",
+                         div(
+                           colourpicker::colourInput("majorgridlinescolx", "Major X Axis Grid Lines:",
+                                                     value="#E5E5E5",
+                                                     showColour = "both",
+                                                     allowTransparent=TRUE,returnName=TRUE),
+                           style = "display: inline-block;") ,
+                         div(
+                           colourpicker::colourInput("majorgridlinescoly", "Major Y Axis Grid Lines:",
+                                                     value="#E5E5E5",
+                                                     showColour = "both",
+                                                     allowTransparent=TRUE,returnName=TRUE),
+                           style = "display: inline-block;") ,
+                         div( actionButton("majorgridlinescolreset", "Reset Major Grid Lines Color"),
+                              style="display: inline-block;text-align: right"),br(),
+                         div(colourpicker::colourInput("minorgridlinescolx", "Minor X Axis Grid Lines:",
+                                                       value="#E5E5E5",
+                                                       showColour = "both",
+                                                       allowTransparent=TRUE,returnName=TRUE),
+                             style = "display: inline-block;"),
+                         div(colourpicker::colourInput("minorgridlinescoly", "Minor Y Axis Grid Lines:",
+                                                       value="#E5E5E5",
+                                                       showColour = "both",
+                                                       allowTransparent=TRUE,returnName=TRUE),
+                             style = "display: inline-block;"),
+                         div( actionButton("minorgridlinescolreset", "Reset Minor Grid Lines Color"),
+                              style="display: inline-block;text-align: right"),
+                         inline_ui(checkboxInput('rmmajorgridlinesx',
+                                                 'Remove X axis Major Grid Lines?',value=FALSE)),
+                         inline_ui(checkboxInput('rmmajorgridlinesy',
+                                                 'Remove Y axis Major Grid Lines?',value=FALSE)),
+                         inline_ui(checkboxInput('rmminorgridlinesx',
+                                                 'Remove X axis Minor Grid Lines?',value=FALSE)),
+                         inline_ui(checkboxInput('rmminorgridlinesy',
+                                                 'Remove Y axis Minor Grid Lines?',value=FALSE))
+                ),
+                tabPanel("Margins",
+                         inline_ui(
+                           numericInput("margintop",label = "Plot Top Margin",
+                                        value = 0,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("marginleft",label = "Plot Left Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("marginright",label = "Plot Right Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("marginbottom",label = "Plot Bottom Margin",
+                                        value = 0,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendtop",label = "Legend Top Margin",
+                                        value = 0,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendleft",label = "Legend Left Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendright",label = "Legend Right Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendbottom",label = "Legend Bottom Margin",
+                                        value = 0,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendboxtop",label = "Legend Box Top Margin",
+                                        value = 0,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendboxleft",label = "Legend Box Left Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendboxright",label = "Legend Box Right Margin",
+                                        value = 5.5,min=0,max=NA,width='120px')),
+                         inline_ui(
+                           numericInput("legendboxbottom",label = "Legend Box Bottom Margin",
+                                        value = 0,min=0,max=NA,width='120px'))
+                )
+              ),
+              hr(),
+              checkboxInput('themeaspect', 'Use custom aspect ratio ?')   ,  
+              conditionalPanel(condition = "input.themeaspect" , 
+                               numericInput("aspectratio",label = "Y/X ratio",
+                                            value = 1,min=0.1,max=10,step=0.01)),
+              checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE) , 
+              tabsetPanel(
+                tabPanel("Discrete Color and Fill Scale",
+                            radioButtons("themecolorswitcher", "Discrete Color and Fill Scale:",
                            c("Tableau 10"  = "themetableau10",
                              "Tableau 20"  = "themetableau20",
                              "Color Blind" = "themecolorblind",
@@ -517,109 +741,72 @@ fluidPage(
                              "viridis"        = "themeviridis",
                              "User defined" = "themeuser")
                            ,inline=TRUE),
-              h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
+                         h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
                  Try to use Tableau 20 or ggplot default. Color Blind and Color Blind 2 Themes support up to 8 colors.
                  Contact me if you want to add your own set of colors."),
-              conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-              sliderInput("nusercol", "N of User Colors:", min=2, max=20, value=c(10),step=1)
-                               ),
-              uiOutput('userdefinedcolor'),
-              conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-                                actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
-                               actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
-                               
-              ),
-              
-              radioButtons("scaleshapeswitcher", "Discrete Shape Scales:",
-                           c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
-              conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
-                               sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
-              ),
-              uiOutput('userdefinedshape'),
-              
-              radioButtons("scalelinetypeswitcher", "Discrete Linetype Scales:",
-                           c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
-              conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
-                               sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
-              ),
-              uiOutput('userdefinedlinetype'),
-              
-              radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
-                           c("Red White Blue"  = "RedWhiteBlue",
-                             "Red White Green"  = "RedWhiteGreen",
-                             "ggplot default" = "themeggplot",
-                             "viridis" = "themeviridis",
-                             "User defined" = "themeuser")
-                           ,inline=TRUE),
-              conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
+                                          sliderInput("nusercol", "N of User Colors:", min=2, max=20, value=c(10),step=1)
+                         ),
+                         uiOutput('userdefinedcolor'),
+                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
+                                          actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
+                                          actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
+                                          
+                         )
+                         ),
+                tabPanel("Discrete Shape Scale",
+                         radioButtons("scaleshapeswitcher", "Discrete Shape Scale:",
+                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+                         conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
+                                          sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
+                         ),
+                         uiOutput('userdefinedshape')
+                ),
+                tabPanel("Discrete Linetype Scale",
+                         radioButtons("scalelinetypeswitcher", "Discrete Linetype Scale:",
+                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+                         conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
+                                          sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
+                         ),
+                         uiOutput('userdefinedlinetype')
+                ),
+                tabPanel("Continuous Color and Fill Scale",
+                         radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
+                                      c("Red White Blue"  = "RedWhiteBlue",
+                                        "Red White Green"  = "RedWhiteGreen",
+                                        "ggplot default" = "themeggplot",
+                                        "viridis" = "themeviridis",
+                                        "User defined" = "themeuser")
+                                      ,inline=TRUE),
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
                                              input.themecontcolorswitcher=='RedWhiteGreen'" ,
-                              colourpicker::colourInput(
-                                 "midcolor",
-                                 "Midpoint Color",
-                                 value ="white",
-                                 showColour = "both",
-                                 allowTransparent = FALSE,returnName = TRUE)
-              ),
-              conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                                          colourpicker::colourInput(
+                                            "midcolor",
+                                            "Midpoint Color",
+                                            value ="white",
+                                            showColour = "both",
+                                            allowTransparent = FALSE,returnName = TRUE)
+                         ),
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
                                              input.themecontcolorswitcher=='RedWhiteGreen'|
                                              input.themecontcolorswitcher=='themeuser'" ,
-                       numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
-                                            value = 0)
-              ),
-              
-              # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-              #                  gradientInputUI("gradientcol", "100%", "www"),
-              #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
-              #                  ),
-              
-              
-              conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                               uiOutput('userdefinedcontcolor'),
-                               actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
-                               
-              ),
-
-              checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE) , 
-              checkboxInput('themebw', 'Use Black and White Theme ?',value=TRUE),
-              colourpicker::colourInput("majorgridlinescol", "Major Grid Lines Color:",
-                                        value="#E5E5E5",
-                                        showColour = "both",
-                                        allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("majorgridlinescolreset", "Reset Major Grid Lines Color"),
-                   style="text-align: right"),
-              colourpicker::colourInput("minorgridlinescol", "Minor Grid Lines Color:",
-                                        value="#E5E5E5",
-                                        showColour = "both",
-                                        allowTransparent=TRUE,returnName=TRUE),
-              div( actionButton("minorgridlinescolreset", "Reset Minor Grid Lines Color"), style="text-align: right"),
-              checkboxInput('themeaspect', 'Use custom aspect ratio ?')   ,  
-              conditionalPanel(condition = "input.themeaspect" , 
-                               numericInput("aspectratio",label = "Y/X ratio",
-                                            value = 1,min=0.1,max=10,step=0.01)),
-              inline_ui(
-                numericInput("margintop",label = "Plot Top Margin",
-                             value = 0,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("marginleft",label = "Plot Left Margin",
-                             value = 5.5,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("marginright",label = "Plot Right Margin",
-                             value = 5.5,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("marginbottom",label = "Plot Bottom Margin",
-                             value = 0,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("legendtop",label = "Legend Top Margin",
-                             value = 0,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("legendleft",label = "Legend Left Margin",
-                             value = 5.5,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("legendright",label = "Legend Right Margin",
-                             value = 5.5,min=0,max=NA,width='120px')),
-              inline_ui(
-                numericInput("legendbottom",label = "Legend Bottom Margin",
-                             value = 0,min=0,max=NA,width='120px'))
+                                          numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
+                                                       value = 0)
+                         ),
+                         # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                         #                  gradientInputUI("gradientcol", "100%", "www"),
+                         #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
+                         #                  ),
+                         
+                         
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                                          uiOutput('userdefinedcontcolor'),
+                                          actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
+                                          
+                         )    
+                         
+                )
+              )
               ) #tabpanel
             )#tabsetpanel
       ), # tabpanel
@@ -684,18 +871,35 @@ fluidPage(
                       " input.Points!= 'None' ",
                       sliderInput("pointsizes", "Points Size:", min=0, max=6, value=c(1),step=0.1),
                       checkboxInput('pointignoresize', 'Ignore Mapped Size'),
-                      radioButtons("jitterdirection", "Jitter Direction:",
+                      radioButtons("jitterdirection", "Add noise/adjust points:",
                                    c("None" = "None",
-                                     "Vertical"  = "Vertical",
-                                     "Horizontal"  = "Horizontal",
-                                     "Default" = "Default",
-                                     "Custom" = "Custom"
+                                     "Jitter Vertical"  = "Vertical",
+                                     "Jitter Horizontal"  = "Horizontal",
+                                     "Jitter Both" = "Default",
+                                     "Jitter Custom" = "Custom",
+                                     "Side By Side"= "dodge",
+                                     "Top on Top"= "dodgev"
                                    ),selected="None"
                                    ,inline=TRUE),
                       conditionalPanel(
                         " input.jitterdirection== 'Custom' ",
-                        numericInput("jittervertical",label = "Vertical Jitter Height",value =0.1,min=0) ,
-                        numericInput("jitterhorizontal",label = "Horizontal Jitter Width",value =0.1,min=0) 
+                        inline_ui(
+                        numericInput("jittervertical",label = "Vertical Jitter Height",
+                                     value =0.1,min=0,width='120px')) ,
+                        inline_ui(numericInput("jitterhorizontal",
+                                               label = "Horizontal Jitter Width",value =0.1,min=0,width='120px'))
+                      ),
+                      conditionalPanel(
+                        " input.jitterdirection== 'dodge' ",
+                        inline_ui(
+                          numericInput("pointdodgewidth",label = "Points dodge width",
+                                       value =0.75,min=0,width='120px'))
+                      ),
+                      conditionalPanel(
+                        " input.jitterdirection== 'dodgev' ",
+                        inline_ui(
+                          numericInput("pointdodgeheight",label = "Points dodge height",
+                                       value =0.75,min=0,width='120px'))
                       )
                     )
                   ),
@@ -957,8 +1161,8 @@ fluidPage(
                                                   "10%" = 0.1,
                                                   "5%" = 0.05,
                                                   "3%" = 0.03
-                                                )),
-                             selectInput('predefquantileslinetype','Line Type:',
+                                                ),inline = TRUE),
+                             selectInput('predefquantileslinetype','Predefined Quantiles Line Type:',
                                          c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","1F","blank"),
                                          selected="dashed")
                            )
@@ -1017,24 +1221,33 @@ fluidPage(
               tabPanel(
                 "Smooth/Linear/Logistic Regressions",
                 fluidRow(
-                  column (
-                    3, 
+                  column (2, 
                     radioButtons("Smooth", "Smooth:",
                                  c("Smooth" = "Smooth",
                                    "Smooth and SE" = "Smooth and SE",
-                                   "None" = "None"),selected="None"),
-                    conditionalPanel(
-                      " input.Smooth== 'Smooth and SE' ",
-                      sliderInput("smoothselevel", "Confidence Level:", min=0.5, max=0.99, value=c(0.95),step=0.01),
-                      sliderInput("smoothCItransparency", "CI Transparency:", min=0, max=1, value=c(0.2),step=0.01)
-                    ),
+                                   "None" = "None"),selected="None", inline = TRUE),
                     conditionalPanel(
                       " input.Smooth!= 'None' ",
-                      checkboxInput('ignoregroup', 'Ignore Mapped Group',value = TRUE)
+                      checkboxInput('ignoregroup', 'Ignore Mapped Group',value = TRUE),
+                      uiOutput("weight")
                     ) 
                   ),
-                  column (
-                    3, 
+                  column (2,
+                          conditionalPanel(
+                            " input.Smooth== 'Smooth and SE' ",
+                            sliderInput("smoothselevel", "CI %:", min=0.5, max=0.99, value=c(0.95),step=0.01),
+                            sliderInput("smoothCItransparency", "CI Transparency:", min=0, max=1, value=c(0.2),step=0.01)
+                          )    
+                  ),
+                  column (2, 
+                          conditionalPanel( " input.Smooth!= 'None' ",                    
+                            sliderInput("smoothlinesize", "Smooth Line(s) Size:",
+                                        min=0, max=4,value=c(1.5),step=0.1),
+                            sliderInput("smoothlinealpha", "Smooth Line(s) Transparency:",
+                                        min=0, max=1, value=c(0.5),step=0.01)
+                          )
+                  ),
+                  column(2, 
                     conditionalPanel(
                       " input.Smooth!= 'None' ",
                       selectInput('smoothmethod', label ='Smoothing Method',
@@ -1042,49 +1255,59 @@ fluidPage(
                                             "Logistic"="glm1",
                                             "Poisson"="glm2",
                                             "Emax"="emax"),
-                                  multiple=FALSE, selectize=TRUE,selected="loess"),
-                      conditionalPanel(" input.smoothmethod== 'lm' ",
-                                       checkboxInput('showslopepvalue', 'Show Slope p-value ?',value = FALSE),
-                                       checkboxInput('showadjrsquared', HTML('Show R<sup>2</sup><sub>adj</sub> ?'),value = FALSE),
-                                       checkboxInput('showlmequation', HTML('Show Int/Slope values &plusmn SE ?'),value = FALSE)
-                      ),
-                      conditionalPanel(" input.smoothmethod== 'emax' ",
-                                       checkboxInput('shownlsparams', HTML('Show Fitted values &plusmn SE ?'),value = FALSE),
-                                       checkboxInput('customemaxstart', HTML('Specify Starting values ?'),value = FALSE)
-                      ),
-                      conditionalPanel(" input.customemaxstart ",
-                                       numericInput("emaxstart",label = "Emax start",value = 1),
-                                       numericInput("ec50start",label = "EC50 start",value = 1,min=0),
-                                       checkboxInput('e0fit', 'E0 Fit ?',value = FALSE)
-                      ),
-                      
-                      conditionalPanel(" input.customemaxstart & input.e0fit ",
-                                       numericInput("e0start",label = "E0 start",value = 1)
-                      ),
-                      conditionalPanel(" input.smoothmethod== 'loess' ",
-                                       sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05),
-                                       selectInput('loessfamily', label ='Loess Family:',
-                                                   choices=c("Gaussian" ="gaussian","Symmetric"="symmetric"),
-                                                   multiple=FALSE, selectize=TRUE,selected="gaussian"),
-                                       sliderInput("loessdegree", "Loess Degree:", min=0, max=2, value=c(1),step=1)
-                      ),
-                      conditionalPanel(" input.smoothmethod== 'emax' | input.smoothmethod== 'lm' ",
-                                       sliderInput("smoothtextsize", "Text Size:", min=0, max=10, value=c(3.88),step=0.01)
-                                       
-                      )
-                      
-                      
-                    ) 
+                                  multiple=FALSE, selectize=TRUE,selected="loess")
+                    ),
+                    conditionalPanel(
+                      "input.Smooth== 'Smooth and SE' & input.smoothmethod== 'emax' ",
+                    h5("The emax fit is based on a nonlinear `nls` fit which does not support providing standard errors."),
+                    )
                   ),
-                  column (
-                    3, 
-                    uiOutput("weight"),
-                    conditionalPanel( " input.Smooth!= 'None' ",                    
-                                      sliderInput("smoothlinesize", "Smooth Line(s) Size:", min=0, max=4,value=c(1.5),step=0.1),
-                                      sliderInput("smoothlinealpha", "Smooth Line(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01)
-                    )),
-                  
-                  column (3,
+                 column (2,
+                          conditionalPanel(" input.Smooth!= 'None' ",
+                                           
+                          conditionalPanel(" input.smoothmethod== 'lm' ",
+                                           checkboxInput('showslopepvalue', 'Show Slope p-value ?',value = FALSE),
+                                           checkboxInput('showadjrsquared', HTML('Show R<sup>2</sup><sub>adj</sub> ?'),value = FALSE),
+                                           checkboxInput('showlmequation', HTML('Show Int/Slope values &plusmn SE ?'),value = FALSE)
+                          ),
+                          conditionalPanel(" input.smoothmethod== 'emax' ",
+                                           checkboxInput('shownlsparams', HTML('Show Fitted values &plusmn SE ?'),
+                                                         value = FALSE),
+                                           checkboxInput('customemaxstart', HTML('Specify Starting values ?'),
+                                                         value = FALSE),
+                                           checkboxInput('e0fit', 'E0 Fit ?',value = FALSE)
+                          ),
+                          conditionalPanel(" input.smoothmethod== 'emax' & input.customemaxstart ",
+                                           inline_ui(
+                                             numericInput("emaxstart",label = "Emax start",
+                                                          value = 1, width='80px')
+                                             ),
+                                           inline_ui(
+                                             numericInput("ec50start",label = "EC50 start",
+                                                          value = 1, min=0, width='80px')
+                                             )
+                          ),
+                          
+                          conditionalPanel(" input.customemaxstart & input.e0fit ",
+                                           inline_ui(numericInput("e0start",label = "E0 start",
+                                                                  value = 1 , width='80px')
+                                                     )
+                          ),
+                          conditionalPanel(" input.smoothmethod== 'loess' ",
+                                           sliderInput("loessens", "Loess Span:", min=0, max=1, value=c(0.75),step=0.05),
+                                           selectInput('loessfamily', label ='Loess Family:',
+                                                       choices=c("Gaussian" ="gaussian","Symmetric"="symmetric"),
+                                                       multiple=FALSE, selectize=TRUE,selected="gaussian"),
+                                           sliderInput("loessdegree", "Loess Degree:", min=0, max=2, value=c(1),step=1)
+                          ),
+                          conditionalPanel(" input.smoothmethod== 'emax' | input.smoothmethod== 'lm' ",
+                                           sliderInput("smoothtextsize", "Text Size:", min=0, max=10,
+                                                       value=c(3.88),step=0.01)
+                                           
+                          )
+                  )
+                  ),
+                  column (2,
                           conditionalPanel( " input.Smooth!= 'None' ",
                                             checkboxInput('smoothignorecol', 'Ignore Mapped Color'),
                                             conditionalPanel(
@@ -1103,8 +1326,7 @@ fluidPage(
               ### Mean CI section
               tabPanel("Mean (CI)",
                        fluidRow(
-                         column(12, hr()),
-                         column (3,
+                         column (2,
                                  radioButtons(
                                    "Mean",
                                    "Mean:",
@@ -1113,10 +1335,29 @@ fluidPage(
                                      "Mean/CI" = "Mean/CI",
                                      "None" = "None"
                                    ) ,
-                                   selected = "None"
+                                   selected = "None",
+                                   inline = TRUE
                                  ),
                                  conditionalPanel(
+                                   " input.Mean!= 'None' ",
+                                   checkboxInput('meanignoregroup', 'Ignore Mapped Group', value = TRUE),
+                                   selectInput("positionmean", label = "Mean positioning for overlap:",
+                                               choices = c(
+                                                 "Default"="position_identity",
+                                                 "Side By Side"="position_dodge"
+                                               ),selected = "position_identity")
+                                   
+                                 )
+                                 
+                         ),#first column
+                         column (2,
+                                conditionalPanel(
                                    " input.Mean== 'Mean/CI' ",
+                                   radioButtons("geommeanCI", "CI Geom:",
+                                                c("errorbar" = "errorbar",
+                                                  "ribbon"= "ribbon"),
+                                                selected = "errorbar",
+                                                inline = TRUE),
                                    sliderInput(
                                      "CI",
                                      "CI %:",
@@ -1125,33 +1366,22 @@ fluidPage(
                                      value = c(0.95),
                                      step = 0.01
                                    ),
-                                   numericInput(
-                                     inputId = "errbar",
-                                     label = "CI bar width:",
-                                     value = 0.75,
-                                     min = 0.1,
-                                     max = NA
-                                   )
-                                 ),
-                                 conditionalPanel(
-                                   " input.Mean!= 'None' ",
-                                   checkboxInput('meanvalues', 'Label Values?') ,
-                                   checkboxInput('meanN', 'Label N?') ,
-                                   checkboxInput('meanignoregroup', 'Ignore Mapped Group', value = TRUE),
-                                   selectInput("positionmean", label = "Mean positioning for overlap:",
-                                               choices = c(
-                                                 "Default"="position_identity()",
-                                                 "Side By Side"="position_dodge2(width = 0.75)"
-                                               ),selected = "position_identity()"),
-                                   radioButtons("geommeanlabel", "Mean Label Geom:",
-                                                c("text" = "text","label"= "label",
-                                                  "auto text repel" = "text_repel",
-                                                  "auto label repel" = "label_repel"),selected = "text_repel" )
-                                   
-                                 )
+                                   sliderInput("meancitransparency", "CI Transparency:",
+                                               min=0, max=1, value=c(0.2),step=0.01)
+                                ),
+                                conditionalPanel(
+                                  " input.Mean== 'Mean/CI' | input.positionmean =='position_dodge'  ",
+                                     numericInput(
+                                       inputId = "errbar",
+                                       label = "CI bar/dodge width:",
+                                       value = 0.75,
+                                       min = 0.1,
+                                       max = NA
+                                     )
+                                 )       
                                  
-                         ),#first column
-                         column (3,
+                         ),# ci column options
+                         column (2,
                                  conditionalPanel(
                                    " input.Mean!= 'None' ",
                                    checkboxInput('meanlines', 'Show lines', value =TRUE)
@@ -1174,16 +1404,15 @@ fluidPage(
                                      value = c(0.5),
                                      step = 0.01
                                    )
-                                 ),
-                                 sliderInput("alphameanlabel", "Labels(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01)
+                                 )
                          ),#second column
-                         column (3,
+                         column (2,
                                  conditionalPanel(
                                    " input.Mean!= 'None' ",
                                    checkboxInput('meanpoints', 'Show points')
                                  ),
                                  conditionalPanel(
-                                   " input.Mean!= 'None'&input.meanpoints ",
+                                   " input.Mean!= 'None' & input.meanpoints ",
                                    sliderInput(
                                      "meanpointsize",
                                      "Mean(s) Point(s) Size:",
@@ -1200,11 +1429,64 @@ fluidPage(
                                      value = c(0.5),
                                      step = 0.01
                                    ),
-                                   checkboxInput('forcemeanshape', 'Force Mean(s) Shape', value = FALSE)
+                                   checkboxInput('forcemeanshape', 'Force Mean(s) Shape',
+                                                 value = FALSE),
+                                   conditionalPanel(
+                                     " input.Mean!= 'None'&input.meanpoints & input.forcemeanshape ",
+                                     selectInput('meanshapes','Mean(s) Point(s) Shape:',
+                                                 c(
+                                                   "square open"           ,
+                                                   "circle open"           ,
+                                                   "triangle open"         ,
+                                                   "plus"                  ,
+                                                   "cross"                 ,
+                                                   "asterisk"              ,
+                                                   "diamond open"          ,
+                                                   "triangle down open"    ,
+                                                   "square cross"          ,
+                                                   "diamond plus"          ,
+                                                   "circle plus"           ,
+                                                   "star"                  ,
+                                                   "square plus"           ,
+                                                   "circle cross"          ,
+                                                   "square triangle"       ,
+                                                   "square"                ,
+                                                   "circle small"          ,
+                                                   "triangle"              ,
+                                                   "diamond"               ,
+                                                   "circle"                ,
+                                                   "bullet"                ,
+                                                   "circle filled"         ,
+                                                   "square filled"         ,
+                                                   "diamond filled"        ,
+                                                   "triangle filled"       ,
+                                                   "triangle down filled"
+                                                 ),
+                                                 selected = "diamond"
+                                     )
+                                   )
                                  )
                                  
                          ),#third column
-                         column(3,
+                         column(2,
+                                conditionalPanel(
+                                  " input.Mean!= 'None' ",
+                                  checkboxInput('meanvalues', 'Label Values?') ,
+                                  checkboxInput('meanN', 'Label N?') ),
+                                
+                                conditionalPanel(
+                                  "input.meanvalues | input.meanN ",
+                                  sliderInput("alphameanlabel", "Labels(s) Transparency:",
+                                              min=0, max=1, value=c(0.5),step=0.01),
+                                  radioButtons("geommeanlabel", "Mean Label Geom:",
+                                               c("text" = "text","label"= "label",
+                                                 "auto text repel" = "text_repel",
+                                                 "auto label repel" = "label_repel"),selected = "text_repel",
+                                               inline = TRUE)
+                                )
+                                
+                                ), # fourth column
+                         column(2,
                                 conditionalPanel(
                                   " input.Mean!= 'None' ",
                                   checkboxInput('meanignorecol', 'Ignore Mapped Color') ,
@@ -1228,90 +1510,72 @@ fluidPage(
                                                                       allowTransparent = FALSE,
                                                                       returnName = TRUE)
                                                    )
-                                  ),
-                                  conditionalPanel(
-                                    " input.Mean!= 'None'&input.meanpoints & input.forcemeanshape ",
-                                    selectInput('meanshapes','Mean(s) Point(s) Shape:',
-                                                c(
-                                                  "square open"           ,
-                                                  "circle open"           ,
-                                                  "triangle open"         ,
-                                                  "plus"                  ,
-                                                  "cross"                 ,
-                                                  "asterisk"              ,
-                                                  "diamond open"          ,
-                                                  "triangle down open"    ,
-                                                  "square cross"          ,
-                                                  "diamond plus"          ,
-                                                  "circle plus"           ,
-                                                  "star"                  ,
-                                                  "square plus"           ,
-                                                  "circle cross"          ,
-                                                  "square triangle"       ,
-                                                  "square"                ,
-                                                  "circle small"          ,
-                                                  "triangle"              ,
-                                                  "diamond"               ,
-                                                  "circle"                ,
-                                                  "bullet"                ,
-                                                  "circle filled"         ,
-                                                  "square filled"         ,
-                                                  "diamond filled"        ,
-                                                  "triangle filled"       ,
-                                                  "triangle down filled"
-                                                ),
-                                                selected = "diamond"
-                                    )
                                   )
+
                                 )
-                         )#column 4
+                         )#column 5
                        ) #fluidrow
               ), # tab panel for mean
               
               
               ### median PI section
-              tabPanel(
-                "Median (PIs)",
-                
-                fluidRow(
-                  column(12,hr()),
-                  column (
-                    3,
+              tabPanel("Median (PIs)",
+               fluidRow(
+                  column (2,
                     radioButtons("Median", "Median:",
                                  c("Median" = "Median",
                                    "Median/PI" = "Median/PI",
-                                   "None" = "None") ,selected="None") ,
-                    conditionalPanel( " input.Median== 'Median/PI' ",
-                                      sliderInput("PI", "PI %:", min=0, max=1, value=c(0.95),step=0.01),
-                                      sliderInput("PItransparency", "PI Transparency:", min=0, max=1, value=c(0.2),step=0.01)
-                    ),
+                                   "None" = "None") ,selected="None",
+                                 inline = TRUE),
                     conditionalPanel( " input.Median!= 'None' ",
-                                      checkboxInput('medianvalues', 'Label Values?') ,
-                                      checkboxInput('medianN', 'Label N?') ,
-                                      checkboxInput('medianignoregroup', 'Ignore Mapped Group',value = TRUE),
-                                      selectInput("positionmedian", label = "Median positioning for overlap:",
-                                                  choices = c(
-                                                    "Default"="position_identity()",
-                                                    "Side By Side"="position_dodge2(width = 0.75)"
-                                                  ),selected = "position_identity()"),
-                                      radioButtons("geommedianlabel", "Median Label Geom:",
-                                                   c("text" = "text","label"= "label",
-                                                     "auto text repel" = "text_repel",
-                                                     "auto label repel" = "label_repel"),selected = "text_repel" )
-                    )
-                  ),
-                  column (
-                    3,
-                    conditionalPanel( " input.Median!= 'None' ",
-                                      checkboxInput('medianlines', 'Show lines',value=TRUE),
-                                      sliderInput("medianlinesize", "Median(s) Line(s) Size:", min=0, max=4, value=c(1.5),step=0.1),
-                                      sliderInput("alphamedianl", "Median(s) Line(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01),
-                                      sliderInput("alphamedianlabel", "Labels(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01)
-                    )
+                    checkboxInput('medianignoregroup', 'Ignore Mapped Group',value = TRUE),
+                    selectInput("positionmedian", label = "Median positioning for overlap:",
+                                choices = c(
+                                  "Default"="position_identity",
+                                  "Side By Side"="position_dodge"
+                                ),selected = "position_identity")
                     
+                    )
+                  ),#first column
+                column (2,
+                  conditionalPanel( " input.Median== 'Median/PI' ",
+                                    radioButtons("geommedianPI", "PI Geom:",
+                                                 c("errorbar" = "errorbar",
+                                                   "ribbon"= "ribbon"),
+                                                 selected = "ribbon",
+                                                 inline = TRUE),
+                                    sliderInput("PI", "PI %:", min=0, max=1, value=c(0.95),step=0.01),
+                                    sliderInput("PItransparency", "PI Transparency:",
+                                                min=0, max=1, value=c(0.2),step=0.01)
+                                    
                   ),
-                  column (
-                    3,
+                  
+                  conditionalPanel(
+                    " input.Median== 'Median/PI' | input.positionmedian =='position_dodge'  ",
+                    numericInput(
+                      inputId = "medianerrbar",
+                      label = "PI bar/dodge width:",
+                      value = 0.75,
+                      min = 0.1,
+                      max = NA
+                    )
+                  ) 
+                  
+                ), # Pi color options
+                
+                  column (2,
+                    conditionalPanel( " input.Median!= 'None' ",
+                                      checkboxInput('medianlines', 'Show lines',value=TRUE)
+                                      ),
+                    conditionalPanel(
+                      " input.Median!= 'None'&& input.medianlines ",
+                                      sliderInput("medianlinesize", "Median(s) Line(s) Size:",
+                                                  min=0, max=4, value=c(1.5),step=0.1),
+                                      sliderInput("alphamedianl", "Median(s) Line(s) Transparency:",
+                                                  min=0, max=1, value=c(0.5),step=0.01)
+                      )
+                  ), # lines options
+                  column (2,
                     conditionalPanel( " input.Median!= 'None' ",
                                       checkboxInput('medianpoints', 'Show points')
                     ),
@@ -1319,11 +1583,61 @@ fluidPage(
                                       sliderInput("medianpointsize", "Median(s) Point(s) Size:", min=0, max=6, value=c(1),step=0.1),
                                       sliderInput("alphamedianp", "Median(s) Point(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01),
                                       checkboxInput('forcemedianshape', 'Force Median(s) Shape',value = FALSE)
+                    ),
+                    
+                    conditionalPanel( " input.Median!= 'None'&input.medianpoints & input.forcemedianshape ",
+                                      selectInput('medianshapes','Median(s) Point(s) Shape:',c(
+                                        "square open"           ,
+                                        "circle open"           ,
+                                        "triangle open"         ,
+                                        "plus"                  ,
+                                        "cross"                 ,
+                                        "asterisk"              ,
+                                        "diamond open"          ,
+                                        "triangle down open"    ,
+                                        "square cross"          ,
+                                        "diamond plus"          ,
+                                        "circle plus"           ,
+                                        "star"                  ,
+                                        "square plus"           ,
+                                        "circle cross"          ,
+                                        "square triangle"       ,
+                                        "square"                ,
+                                        "circle small"          ,
+                                        "triangle"              ,
+                                        "diamond"               ,
+                                        "circle"                ,
+                                        "bullet"                ,
+                                        "circle filled"         ,
+                                        "square filled"         ,
+                                        "diamond filled"        ,
+                                        "triangle filled"       ,
+                                        "triangle down filled" 
+                                      ),selected="square")  
+                                      
                     )
                     
-                  ),
-                  column (
-                    3,
+                  ), # points options
+
+                column(2,
+                       conditionalPanel(
+                         " input.Median!= 'None' ",
+                       checkboxInput('medianvalues', 'Label Values?') ,
+                       checkboxInput('medianN', 'Label N?') ),
+                       conditionalPanel(
+                         "input.medianvalues | input.medianN ",
+                         sliderInput("alphamedianlabel", "Labels(s) Transparency:",
+                                     min=0, max=1, value=c(0.5),step=0.01),
+                         radioButtons("geommedianlabel", "Median Label Geom:",
+                                      c("text" = "text","label"= "label",
+                                        "auto text repel" = "text_repel",
+                                        "auto label repel" = "label_repel"),selected = "text_repel",
+                                      inline = TRUE)
+                       )
+                       
+                ), # fourth column
+                
+                  column (2,
                     conditionalPanel( " input.Median!= 'None' ",
                                       checkboxInput('medianignorecol', 'Ignore Mapped Color'),
                                       conditionalPanel(" input.medianignorecol ",
@@ -1345,37 +1659,6 @@ fluidPage(
                                                                          
                                                                          
                                                        )
-                                      ),
-                                      conditionalPanel( " input.Median!= 'None'&input.medianpoints & input.forcemedianshape ",
-                                                        selectInput('medianshapes','Median(s) Point(s) Shape:',c(
-                                                          "square open"           ,
-                                                          "circle open"           ,
-                                                          "triangle open"         ,
-                                                          "plus"                  ,
-                                                          "cross"                 ,
-                                                          "asterisk"              ,
-                                                          "diamond open"          ,
-                                                          "triangle down open"    ,
-                                                          "square cross"          ,
-                                                          "diamond plus"          ,
-                                                          "circle plus"           ,
-                                                          "star"                  ,
-                                                          "square plus"           ,
-                                                          "circle cross"          ,
-                                                          "square triangle"       ,
-                                                          "square"                ,
-                                                          "circle small"          ,
-                                                          "triangle"              ,
-                                                          "diamond"               ,
-                                                          "circle"                ,
-                                                          "bullet"                ,
-                                                          "circle filled"         ,
-                                                          "square filled"         ,
-                                                          "diamond filled"        ,
-                                                          "triangle filled"       ,
-                                                          "triangle down filled" 
-                                                        ),selected="square")  
-                                                        
                                       )
                                       
                                       
@@ -1391,29 +1674,37 @@ fluidPage(
               
               tabPanel("Kaplan-Meier (CI)",
                        fluidRow(
-                         column (3,
+                         column (2,
                                  radioButtons("KM", "KM:",
-                                              c("KM" = "KM",
-                                                "KM/CI" = "KM/CI",
-                                                "None" = "None") ,selected="None") ,
-                                 conditionalPanel( " input.KM== 'KM/CI' ",
-                                                   sliderInput("KMCI", "KM CI:", min=0, max=1, value=c(0.95),step=0.01),
-                                                   sliderInput("KMCItransparency", "KM CI Transparency:", min=0, max=1, value=c(0.2),step=0.01)              
-                                 ),
+                                              c("KM" = "KM","KM/CI" = "KM/CI","None" = "None"),
+                                              selected="None",
+                                              inline = TRUE) ,
                                  conditionalPanel( " input.KM!= 'None' ",
-                                                   checkboxInput('KMignoregroup', 'Ignore Mapped Group',value = TRUE),
-                                                   checkboxInput('addrisktable', 'Add Risk Table',value = FALSE),
-                                                   conditionalPanel( " input.addrisktable ",
-                                                                     selectizeInput("risktablevariables", 'Numbers to Show:',
-                                                                                    choices = c("n.risk","n.event","n.censor","pct.risk","cum.n.event","cum.n.censor") ,multiple=TRUE,
-                                                                                    selected = c("n.risk","n.censor")),
-                                                                     checkboxInput('addhorizontallines', 'Draw Horizontal lines',value = TRUE),
-                                                                     sliderInput("nriskpositionscaler", "Numbers position scaler:", min=0.1, max=1, value=c(0.2),step=0.01),
-                                                                     sliderInput("nriskpositiondodge", "Numbers vertical dodge scaler:", min=-1, max=1, value=c(0.2),step=0.01)
-                                                   )#risktable
+                                                   checkboxInput('KMignoregroup', 'Ignore Mapped Group',value = TRUE)
                                  )#kmnotnotnone
                          ) ,#first km column
-                         column (3,
+                         column (2,
+                                 
+                                 conditionalPanel( " input.KM== 'KM/CI' ",
+                                                   sliderInput("KMCI", "KM CI:", min=0, max=1, value=c(0.95),step=0.01),
+                                                   sliderInput("KMCItransparency", "KM CI Transparency:", min=0, max=1, value=c(0.2),step=0.01),
+                                                   radioButtons("kmconftype", "KM CI type:",
+                                                                c("none" = "none",
+                                                                  "plain" = "plain",
+                                                                  "log" = "log",
+                                                                  "log-log" = "log-log",
+                                                                  "logit" = "logit"),
+                                                                selected = "log",
+                                                                inline = TRUE),
+                                                   radioButtons("kmconflower", "KM lower CI type:",
+                                                                c("usual" = "usual",
+                                                                  "peto" = "peto",
+                                                                  "modified" = "modified"),
+                                                                selected = "log",
+                                                                inline = TRUE)
+                                 )
+                         ),#second km colonne
+                         column (2,
                                  conditionalPanel( " input.KM!= 'None' ",
                                                    sliderInput("kmlinesize", "KM Line(s) Size:", min=0, max=6, value=c(1),step=0.1),
                                                    sliderInput("kmlinealpha", "KM Line(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01),
@@ -1427,8 +1718,8 @@ fluidPage(
                                                    )#addmedian
                                                    
                                  )#kmnotnotnone
-                         ),#second km column
-                         column (3,
+                         ),#3 km column
+                         column (2,
                                  conditionalPanel(" input.KM!= 'None' ",
                                                   selectInput('KMtrans', label ='KM Transformation',
                                                               choices=c("None" ="identity","event"="event",
@@ -1437,8 +1728,23 @@ fluidPage(
                                                   checkboxInput('censoringticks', 'Show Censoring Ticks?'),
                                                   checkboxInput('reversecenstoevent', 'Status is Censoring Flag ?') 
                                  )#kmnotnotnone
-                         ),#third km column
-                         column (3,
+                         ),#4 km column
+                         column (2,
+                                 conditionalPanel(" input.KM!= 'None' ",
+                                checkboxInput('addrisktable', 'Add Risk Table',value = FALSE)),
+                                 conditionalPanel( " input.KM!= 'None' & input.addrisktable ",
+                                                   selectizeInput("risktablevariables", 'Numbers to Show:',
+                                                                  choices = c("n.risk","n.event","n.censor","pct.risk","cum.n.event","cum.n.censor") ,multiple=TRUE,
+                                                                  selected = c("n.risk","n.censor")),
+                                                   checkboxInput('addhorizontallines', 'Draw Horizontal lines',value = TRUE),
+                                                   numericInput(inputId = "breaktimeby",
+                                                                label = "Show Numbers Every x time unit:",value="", min = 0,max = NA),
+                                                   sliderInput("nriskpositionscaler", "Numbers position scaler:", min=0.1, max=1, value=c(0.2),step=0.01),
+                                                   sliderInput("nriskpositiondodge", "Numbers vertical dodge scaler:", min=-1, max=1, value=c(0.2),step=0.01)
+                                 )#risktable
+                         ),
+                         
+                         column (2,
                                  conditionalPanel(" input.KM!= 'None' ",
                                                   checkboxInput('kmignorecol', 'Ignore Mapped Color'),
                                                   conditionalPanel(" input.kmignorecol ",
@@ -1473,27 +1779,32 @@ fluidPage(
               tabPanel(
                 "Correlation Coefficient",
                 fluidRow(
-                  column(3,hr(),
+                  column(3,
                          checkboxInput('addcorrcoeff',
                                        "Add Correlation Coefficient to the plot ?"),
+                         conditionalPanel(
+                           " input.addcorrcoeff ",
                          checkboxInput('addcorrcoeffignoregroup',"Ignore Mapped Group ?", value=TRUE),
                          radioButtons("geomcorr", "Corr Label Geom:",
                                       c("text" = "text",
-                                        "auto text repel" = "text_repel"),selected = "text_repel" )
-                         
+                                        "auto text repel" = "text_repel"),selected = "text_repel",
+                                      inline = TRUE)
+                         )
                   ),
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcorrcoeff ",
                            conditionalPanel( condition = "input.geomcorr=='text'" ,
-                                             numericInput("cortextxpos",label = "Correlation x position",
-                                                          value =0),
-                                             numericInput("cortextypos",label = "Correlation y position",
-                                                          value =0)
-                                             )
+                                             inline_ui(numericInput("cortextxpos",label = "Correlation x position",
+                                                          value =0,width='120px') ),
+                                             inline_ui(numericInput("cortextypos",label = "Correlation y position",
+                                                          value =0,width='120px') )
+                                             ),
+                           sliderInput("corrlabelsize", "Text Size:", min=0, max=6, value=c(3.88), step=0.01),
+                           
                          )
                   ),
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcorrcoeff ",
                            selectInput("corrtype", label = "Correlation Method:",
@@ -1505,7 +1816,7 @@ fluidPage(
                            checkboxInput('addcorrcoeffpvalue',"Show R p-value?", value=FALSE)
                          )
                   ),
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcorrcoeff ",
                            checkboxInput('corrignorecol', 'Ignore Mapped Color'),
@@ -1525,7 +1836,8 @@ fluidPage(
                                )
                              )
                              
-                           )
+                           ),
+                           checkboxInput('correlationshowlegend', "Show Legend ?", value=TRUE)
                          )
                   )
                   
@@ -1535,8 +1847,7 @@ fluidPage(
               tabPanel(
                 "Text Labels",
                 fluidRow(
-                  column (
-                    3,hr(),
+                  column (3,
                     checkboxInput('addcustomlabel',
                                   "Add Text Labels from Data?"),
                     checkboxInput('addcustomlabelignoregroup',"Ignore Mapped Group ?", value=TRUE),
@@ -1544,9 +1855,9 @@ fluidPage(
                     radioButtons("geomlabel", "Label Geom:",
                                  c("text" = "text","label" = "label",
                                    "auto text repel" = "text_repel",
-                                   "auto label repel" = "label_repel"))
+                                   "auto label repel" = "label_repel"), inline = TRUE)
                   ),
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcustomlabel ",
                            uiOutput("labeltext")
@@ -1562,7 +1873,7 @@ fluidPage(
                          )
                          
                   ),
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcustomlabel ",
                            sliderInput("labelsize", "Label Size:", min=0, max=6, value=c(1),step=0.1),
@@ -1570,7 +1881,7 @@ fluidPage(
                          )
                   ),
                   
-                  column(3,hr(),
+                  column(3,
                          conditionalPanel(
                            " input.addcustomlabel ",
                            checkboxInput('customlabelignorecol', 'Ignore Mapped Color'),
@@ -1597,8 +1908,55 @@ fluidPage(
                   column (12, h6("Custom Label Size applies if no Size is applied or if explicitly ignored. Text repelling can take time. Size scales applies to all geoms that use continuous scale size." ))
                   
                 )
-              )
-              
+              ),
+              tabPanel("Rug Marks",
+                       fluidRow(
+                         column(3,
+                                 checkboxInput('addrugmarks', 'Add X/Y rug marks?',
+                                               value = FALSE),
+                                 conditionalPanel(condition = "input.addrugmarks",
+                                                  selectInput('rugsides',
+                                                              label ='X/Y rug marks sides',
+                                                              choices=c("Left" = "l",
+                                                                        "Top" ="t ",
+                                                                        "Right"="r",
+                                                                        "Bottom"="b"),
+                                                              multiple=TRUE, selectize=TRUE,selected="b")
+                                                  
+                                 )
+                         ),
+                         column(3,
+                                checkboxInput('addextrarugmarks',
+                                              'Add rug marks to addtional variables?',
+                                              value = FALSE),
+                                conditionalPanel(condition = "input.addextrarugmarks",
+                                                 selectInput('extrarugsides',
+                                                             label ='Extra Variables rug marks sides',
+                                                             choices=c("Left" = "l",
+                                                                       "Top" ="t ",
+                                                                       "Right"="r",
+                                                                       "Bottom"="b"),
+                                                             multiple=TRUE, selectize=TRUE,selected="b"),
+                                 uiOutput("xcolrug"))
+                         ),
+                         column(3,
+                                conditionalPanel(condition = "input.addrugmarks | input.addextrarugmarks",
+                                sliderInput("ruglinelength", "rug line length (percentage of the plot area):", min=0, max=1,value=c(0.03),step=0.005),
+                                sliderInput("ruglinealpha", "rug line transparency:", min=0, max=1, value=c(0.5),step=0.01)
+                                )
+                                ),
+                         column(3,
+                         conditionalPanel(condition = "input.addrugmarks | input.addextrarugmarks",
+                           checkboxInput('rugignorecol', 'Ignore Mapped Color'),
+                           conditionalPanel(condition = " input.rugignorecol ",
+                             colourpicker::colourInput("colrug", "rug Color", value="black",
+                                                       showColour = "both",
+                                                       allowTransparent=FALSE, returnName=TRUE)
+                           )
+                         )
+                         )
+                       )#fluidrow
+              )#tabpanel
               )#tabsetPanel
           )#tabPanel
           
@@ -1729,7 +2087,7 @@ fluidPage(
       
       tabPanel(
         'Plot Code',
-        h5("Plot reproducibility initial support. To reproduce a plot, in the data tab save the plotdata into a csv, read back to R naming it plotdata then copy paste the code below. Some inputs might not be yet supported we will be adding those during the coming weeks."),
+        h5("Plot code generation: to reproduce a plot, in the data tab show all rows and save the plotdata into a csv, read back to R naming it plotdata then copy paste the code below. If you face inputs that are not yet supported, please file a github issue."),
         verbatimTextOutput("plotcode")
       )
       )#tabsetPanel
