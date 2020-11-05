@@ -378,7 +378,9 @@ function(input, output, session) {
     validate(       need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    selectInput("x", "x variable:",items,selected=items[2])
+    selectizeInput("x", "x variable(s):",choices=items,selected=items[2],multiple=TRUE,
+                   options = list(
+                     plugins = list('remove_button', 'drag_drop')))
     
   })
   
@@ -386,7 +388,7 @@ function(input, output, session) {
     df <-values$maindata
     validate(       need(!is.null(df), "Please select a data set"))
     items = names(df)
-    items = c("None",items, "yvars","yvalues") 
+    items = c("None",items, "yvars","yvalues","xvars","xvalues") 
     names(items) = items
     selectizeInput("xrug", "rug variable(s):",choices = items,
                    multiple=TRUE,
@@ -565,13 +567,13 @@ function(input, output, session) {
     names(items)=items
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
-    if (!is.null(input$catvarin)&length(input$catvarin ) >=1) {
+    if (!is.null(input$catvarin) && length(input$catvarin ) >=1) {
       NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
     }
-    if (!is.null(input$catvarquantin)&length(input$catvarquantin ) >=1) {
+    if (!is.null(input$catvarquantin) && length(input$catvarquantin ) >=1) {
       NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarquantin) ]
     }
-    if (!is.null(input$catvar2in)&length(input$catvar2in ) >=1) {
+    if (!is.null(input$catvar2in) && length(input$catvar2in ) >=1) {
       NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvar2in) ]
     }
     selectizeInput(  "catvar3in", 'Custom cuts of this variable, defaults to min, median, max before any applied filtering:',
@@ -587,13 +589,15 @@ function(input, output, session) {
     if (is.null(input$catvar3in)) return()
     if (!is.null(input$catvar3in) && length(input$catvar3in ) <1)  return(NULL)
     if ( input$catvar3in!=""){
-      textInput("xcutoffs", label =  paste(input$catvar3in,"Cuts"),
+      column(12,textInput("xcutoffs", label =  paste(input$catvar3in,"Cuts"),
                 value = as.character(paste(
                   min(df[,input$catvar3in] ,na.rm=T),
                   median(df[,input$catvar3in],na.rm=T),
                   max(df[,input$catvar3in],na.rm=T)
                   ,sep=",")
                 )
+      ),
+      checkboxInput('missingcategory2', 'Missing as a Category ?', value = FALSE)
       )
     }
   })
@@ -721,8 +725,12 @@ function(input, output, session) {
       nxintervals <- length(as.numeric(unique(unlist (strsplit(xlimits, ",")) ))) -1
       df[,varname] <- cut( as.numeric ( as.character(  df[,varname])),
                            breaks=   as.numeric(unique(unlist (strsplit(xlimits, ","))) ),include.lowest=TRUE)
-      df[,"custombins"] <-   df[,varname] 
       
+      if(input$missingcategory2) {
+        df[,varname] <- addNA(df[,varname])
+        levels(df[,varname])[length(levels(df[,varname]))] <- "Missing"
+      }
+      df[,"custombins"] <-   df[,varname] 
       if(input$asnumericin) {
         df[,varname] <- as.numeric(as.factor(df[,varname]) ) -1 
       }
@@ -730,7 +738,7 @@ function(input, output, session) {
     df
   })
   output$bintext <- renderText({
-    df <- factor_merge_data()
+    df <- recodedata3()
     validate(       need(!is.null(df), "Please select a data set"))
     bintextout <- ""
     if(input$catvar3in!="" && !is.null(input$asnumericin)) {
@@ -1120,6 +1128,7 @@ function(input, output, session) {
     
   })
   outputOptions(output, "onerowidlastgroup", suspendWhenHidden=FALSE)  
+  
   filterdata8  <- reactive({
     df <- filterdata7()
     validate(       need(!is.null(df), "Please select a data set"))
@@ -1136,38 +1145,9 @@ function(input, output, session) {
     as.data.frame(df)
   })
   
-  output$roundvar <- renderUI({
-    df <- filterdata8()
-    validate(       need(!is.null(df), "Please select a data set"))
-    if (!is.null(df)){
-      items=names(df)
-      names(items)=items
-      MODEDF <- sapply(df, function(x) is.numeric(x))
-      NAMESTOKEEP2<- names(df)  [MODEDF]
-      selectizeInput(  "roundvarin", "Round the Values to the Specified N Digits:", choices = NAMESTOKEEP2,multiple=TRUE,
-                       options = list(
-                         placeholder = 'Please select some variables',
-                         onInitialize = I('function() { this.setValue(""); }')
-                       )
-      )
-    }
-  }) 
-  outputOptions(output, "roundvar", suspendWhenHidden=FALSE)
-  
-  rounddata <- reactive({
-    df <- filterdata8()
-    validate(       need(!is.null(df), "Please select a data set"))
-    if(!is.null(input$roundvarin)&&length(input$roundvarin ) >=1) {
-      for (i in 1:length(input$roundvarin ) ) {
-        varname<- input$roundvarin[i]
-        df[,varname]   <- round( df[,varname],input$rounddigits)
-      }
-    }
-    df
-  })  
   
   output$divideynum <- renderUI({
-    df <- rounddata()
+    df <- filterdata8()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       items=names(df)
@@ -1182,9 +1162,24 @@ function(input, output, session) {
       )
     }
   })
+  outputOptions(output, "divideynum", suspendWhenHidden=FALSE)
+  
+  dividedata <- reactive({
+    df <- filterdata8()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$divideynumin)&&length(input$divideynumin ) >=1 &&
+       !is.null(input$divideydenomin)) {
+      for (i in 1:length(input$divideynumin ) ) {
+        varname<- input$divideynumin[i]
+        dosname<- input$divideydenomin
+        df[,varname]   <-  df[,varname] /as.numeric(as.character(df[,dosname]))
+      }
+    }
+    df
+  })
   
   output$divideydenom <- renderUI({
-    df <- rounddata()
+    df <- filterdata8()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       items=names(df)
@@ -1194,6 +1189,7 @@ function(input, output, session) {
       selectInput(  "divideydenomin", "Variable to divide by", choices = NAMESTOKEEP2,multiple=FALSE)
     }
   })
+  outputOptions(output, "divideydenom", suspendWhenHidden=FALSE)
   
   output$divideynum2 <- renderUI({
     df <- dividedata()
@@ -1212,26 +1208,7 @@ function(input, output, session) {
       )
     }
   })
-  
-  
-  outputOptions(output, "divideynum", suspendWhenHidden=FALSE)
-  outputOptions(output, "divideydenom", suspendWhenHidden=FALSE)
   outputOptions(output, "divideynum2", suspendWhenHidden=FALSE)
-  
-  
-  dividedata <- reactive({
-    df <- rounddata()
-    validate(       need(!is.null(df), "Please select a data set"))
-    if(!is.null(input$divideynumin)&&length(input$divideynumin ) >=1 &&
-       !is.null(input$divideydenomin)) {
-      for (i in 1:length(input$divideynumin ) ) {
-        varname<- input$divideynumin[i]
-        dosname<- input$divideydenomin
-        df[,varname]   <-  df[,varname] /as.numeric(as.character(df[,dosname]))
-      }
-    }
-    df
-  })
   
   dividedata2 <- reactive({
     df <- dividedata()
@@ -1245,41 +1222,161 @@ function(input, output, session) {
     df
   })
   
+  output$inversenum <- renderUI({
+    df <- dividedata2()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      items=names(df)
+      names(items)=items
+      MODEDF <- sapply(df, function(x) is.numeric(x))
+      NAMESTOKEEP2<- names(df)  [MODEDF]
+      selectizeInput(  "inversenumin", "Inverse the Values by the specified column:",
+                       choices = NAMESTOKEEP2,multiple=TRUE,
+                       options = list(
+                         placeholder = 'Please select some variables',
+                         onInitialize = I('function() { this.setValue(""); }')
+                       )
+      )
+    }
+  })
+  outputOptions(output, "inversenum", suspendWhenHidden=FALSE)
+
+  inversedata <- reactive({
+    df <- dividedata2()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$inversenumin)&&length(input$inversenumin ) >=1) {
+      for (i in 1:length(input$inversenumin ) ) {
+        varname<- input$inversenumin[i]
+        df[,varname]   <-  1/df[,varname]
+      }
+    }
+    df
+  })
+  
+
+  
+  output$roundvar <- renderUI({
+    df <- inversedata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      items=names(df)
+      names(items)=items
+      MODEDF <- sapply(df, function(x) is.numeric(x))
+      NAMESTOKEEP2<- names(df)  [MODEDF]
+      selectizeInput(  "roundvarin", "Round the Values to the Specified N Digits:", choices = NAMESTOKEEP2,multiple=TRUE,
+                       options = list(
+                         placeholder = 'Please select some variables',
+                         onInitialize = I('function() { this.setValue(""); }')
+                       )
+      )
+    }
+  }) 
+  outputOptions(output, "roundvar", suspendWhenHidden=FALSE)
+  
+  rounddata <- reactive({
+    df <- inversedata()
+    validate(       need(!is.null(df), "Please select a data set"))
+    if(!is.null(input$roundvarin)&&length(input$roundvarin ) >=1) {
+      for (i in 1:length(input$roundvarin ) ) {
+        varname<- input$roundvarin[i]
+        df[,varname]   <- round( df[,varname],input$rounddigits)
+      }
+    }
+    df
+  })  
+  
   tabledata <- reactive({
-    df <- dividedata2() 
+    df <- rounddata() 
     df
   })
   
   stackdata <- reactive({
-    
-    df <- dividedata2()
+    df <- rounddata()
     validate(       need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
+      validate(  need(! (is.null(input$x) & is.null(input$y)),
+"Please select at least one x or at least one y."))
+    }
+    if (!is.null(df)){
+      validate(  need( nrow(df) > 0,
+    "The dataset has to have at least one row."))
+    }
+    
+    if (!is.null(df) & !is.null(input$x)){
       validate(  need(!is.element(input$x,input$y) ,
-                      "Please select a different x variable or remove the x variable from the list of y variable(s)"))
-      
-      tidydata <- NULL
-      if(!is.null(input$y) ){
-        
-        validate(need(all(input$y %in% names(df)), "Invalid y value(s)"))
-        
-        tidydata <- df %>%
-          gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE) 
-        if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
-          tidydata <- tidydata %>%
-            mutate(yvalues=as.factor(as.character(yvalues) ))
-        }
-        
-      } else {
+  "Please select a different x variable or remove the x variable from the list of y variable(s)"))
+    }
+    if(is.null(input$y) && !is.null(input$x) ){
         tidydata <- df
-        if (nrow(tidydata) > 0) {
+          tidydata <- tidydata %>%
+            gather( "xvars", "xvalues", !!!input$x ,factor_key = TRUE)
           tidydata$yvars <- "None"
           tidydata$yvalues <- NA
-        }
+          if (!all( sapply(df[,as.vector(input$x)], is.numeric)) ) {
+            tidydata <- tidydata %>%
+              mutate(xvalues=as.factor(as.character(xvalues) ))
+            xlevelsall<- vector(mode = "character", length = 0L)
+            for (i in 1:length(input$x) ) {
+              if( is.factor(df[,input$x[i]])) levelsvar <- levels(df[,input$x[i]])
+              if(!is.factor(df[,input$x[i]])) levelsvar <- levels(as.factor(df[,input$x[i]]))
+              xlevelsall<- c(xlevelsall,levelsvar)
+            }
+            xlevelsall <-  unique(xlevelsall, fromLast = TRUE)
+            tidydata$xvalues   <- factor(tidydata$xvalues,levels=xlevelsall)
+          }
       }
-      
-      tidydata
+      if(!is.null(input$y) && is.null(input$x) ){
+        tidydata <- df %>%
+            gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE)
+          tidydata$xvars <- "None"
+          tidydata$xvalues <- NA
+          if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
+            tidydata <- tidydata %>%
+              mutate(yvalues=as.factor(as.character(yvalues) ))
+            ylevelsall<- vector(mode = "character", length = 0L)
+            for (i in 1:length(input$y) ) {
+              if( is.factor(df[,input$y[i]])) levelsvar <- levels(df[,input$y[i]])
+              if(!is.factor(df[,input$y[i]])) levelsvar <- levels(as.factor(df[,input$y[i]]))
+              ylevelsall<- c(ylevelsall,levelsvar)
+            }
+            ylevelsall <-  unique(ylevelsall, fromLast = TRUE)
+            tidydata$yvalues   <- factor(tidydata$yvalues,levels=ylevelsall)
+          }
+      }
+    
+    if(!is.null(input$y) & !is.null(input$x) ){
+      validate(need(all(input$y %in% names(df)), "Invalid y value(s)"))
+      tidydata <- df %>%
+        gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE)
+      tidydata <- tidydata %>%
+        gather( "xvars", "xvalues", !!!input$x ,factor_key = TRUE)
+      if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
+        tidydata <- tidydata %>%
+          mutate(yvalues=as.factor(as.character(yvalues) ))
+        ylevelsall<- vector(mode = "character", length = 0L)
+        for (i in 1:length(input$y) ) {
+          if( is.factor(df[,input$y[i]])) levelsvar <- levels(df[,input$y[i]])
+          if(!is.factor(df[,input$y[i]])) levelsvar <- levels(as.factor(df[,input$y[i]]))
+          ylevelsall<- c(ylevelsall,levelsvar)
+        }
+        ylevelsall <-  unique(ylevelsall, fromLast = TRUE)
+        tidydata$yvalues   <- factor(tidydata$yvalues,levels=ylevelsall)
+      }
+      if (!all( sapply(df[,as.vector(input$x)], is.numeric)) ) {
+        tidydata <- tidydata %>%
+          mutate(xvalues=as.factor(as.character(xvalues) ))
+        xlevelsall<- vector(mode = "character", length = 0L)
+        for (i in 1:length(input$x) ) {
+          if( is.factor(df[,input$x[i]])) levelsvar <- levels(df[,input$x[i]])
+          if(!is.factor(df[,input$x[i]])) levelsvar <- levels(as.factor(df[,input$x[i]]))
+          xlevelsall<- c(xlevelsall,levelsvar)
+        }
+        xlevelsall <-  unique(xlevelsall, fromLast = TRUE)
+        tidydata$xvalues   <- factor(tidydata$xvalues,levels=xlevelsall)
+      }
     }
+      tidydata
+    
   })
   
   
@@ -1307,7 +1404,7 @@ function(input, output, session) {
     if (is.null(input$reordervarin)) return()
     if (length(input$reordervarin ) <1)  return(NULL)
     if ( input$reordervarin!=""){
-      yinputs <- input$y
+      #yinputs <- input$y
       items=names(df)
       names(items)=items
       MODEDF <- sapply(df, function(x) is.numeric(x))
@@ -1366,7 +1463,7 @@ function(input, output, session) {
     if(!is.null(input$reordervarin)&&length(input$reordervarin ) >=1  ){
       NAMESTOKEEP<- NAMESTOKEEP  [ NAMESTOKEEP!=input$reordervarin ]
     }
-    NAMESTOKEEP<- NAMESTOKEEP[ NAMESTOKEEP!="yvars" ]
+    #NAMESTOKEEP<- NAMESTOKEEP[ NAMESTOKEEP!="yvars" ]
     selectInput("reordervar2in" , "Custom Reorder this variable:",c('None',NAMESTOKEEP ) )
   })
   
@@ -1380,6 +1477,7 @@ function(input, output, session) {
                   choices = list(""),multiple=TRUE, selectize=FALSE)   
     }
     if(input$reordervar2in!="None"&&!is.null(input$reordervar2in) )  {
+      
       choices <- levels(as.factor(as.character(df[,input$reordervar2in])))
       selectizeInput('reordervar2valuesnotnull',
                      label = paste("Drag/Drop to reorder",input$reordervar2in, "values"),
@@ -1610,11 +1708,11 @@ function(input, output, session) {
     df <- finalplotdata()
     validate(       need(!is.null(df), "Please select a data set"))
     
-    if (!is.numeric(df[,input$x] ) ) return(NULL)
-    if (all(is.numeric(df[,input$x]) &&
+    if (!is.numeric(df[,"xvalues"] ) ) return(NULL)
+    if (all(is.numeric(df[,"xvalues"]) &&
             input$facetscalesin!="free_x"&&
             input$facetscalesin!="free")){
-      xvalues <- df[,input$x][!is.na( df[,input$x])]
+      xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
       if (length(xvalues) > 0) {
         xmin <- min(xvalues)
         xmax <- max(xvalues)
@@ -1629,11 +1727,11 @@ function(input, output, session) {
   
   output$lowerx <- renderUI({
     df <-finalplotdata()
-    if (is.null(df)| !is.numeric(df[,input$x] ) ) return(NULL)
-    if (all(is.numeric(df[,input$x]) &&
+    if (is.null(df)| !is.numeric(df[,"xvalues"] ) ) return(NULL)
+    if (all(is.numeric(df[,"xvalues"]) &&
             input$facetscalesin!="free_x"&&
             input$facetscalesin!="free")){
-      xvalues <- df[,input$x][!is.na( df[,input$x])]
+      xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
       if (length(xvalues) > 0) {
         xmin <- min(xvalues)
         numericInput("lowerxin",label = "Lower X Limit",value = xmin,min=NA,max=NA,width='100%')
@@ -1642,11 +1740,11 @@ function(input, output, session) {
   })
   output$upperx <- renderUI({
     df <-finalplotdata()
-    if (is.null(df)| !is.numeric(df[,input$x] ) ) return(NULL)
-    if (all(is.numeric(df[,input$x]) &&
+    if (is.null(df)| !is.numeric(df[,"xvalues"] ) ) return(NULL)
+    if (all(is.numeric(df[,"xvalues"]) &&
             input$facetscalesin!="free_x"&&
             input$facetscalesin!="free")){
-      xvalues <- df[,input$x][!is.na( df[,input$x])]
+      xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
       if (length(xvalues) > 0) {
         xmax <- max(xvalues)
         numericInput("upperxin",label = "Upper X Limit",value = xmax,min=NA,max=NA,width='100%')
@@ -1714,7 +1812,7 @@ function(input, output, session) {
     names(items)=items
     items= items
     if ( !is.null(input$y) ){
-      items = c("None",items, "yvars","yvalues") 
+      items = c("None",items, "yvars","yvalues","xvars","xvalues") 
     }
     if ( is.null(input$y) ){
       items = c("None",items) 
@@ -1734,7 +1832,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1751,7 +1849,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items =c(None='.',items,"yvars", "yvalues")
+    items =c(None='.',items,"yvars", "yvalues","xvars", "xvalues")
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1764,7 +1862,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items =c(None='.',items,"yvars", "yvalues")
+    items =c(None='.',items,"yvars", "yvalues","xvars", "xvalues")
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1778,13 +1876,24 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items
-    items =c(None='.',items,"yvars", "yvalues")
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
-      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
-      items= c(items,nameofcombinedvariables)
+    
+    if (length(input$x) < 2 ){
+      items= c(None=".",items,"yvars", "yvalues","xvars", "xvalues")    
+      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+        items= c(items,nameofcombinedvariables)    
+      }
+    }
+    if (length(input$x) > 1  ){
+      items= c("xvars",None=".",items, "yvalues","yvars", "xvalues")    
+      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="")
+        items= c(items,nameofcombinedvariables)    
+      }
     }
     selectInput("facetcolextrain", "Extra Column Split:",items)
   })
+  
   output$facet_row_extra <- renderUI({
     df <-values$maindata
     validate(       need(!is.null(df), "Please select a data set"))
@@ -1793,14 +1902,14 @@ function(input, output, session) {
     items= items
     
     if (length(input$y) < 2 ){
-      items= c(None=".",items,"yvars", "yvalues")    
+      items= c(None=".",items,"yvars", "yvalues","xvars", "xvalues")    
       if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
         nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
         items= c(items,nameofcombinedvariables)    
       }
     }
     if (length(input$y) > 1  ){
-      items= c("yvars",None=".",items, "yvalues")    
+      items= c("yvars",None=".",items, "yvalues","xvars", "xvalues")    
       if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
         nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="")
         items= c(items,nameofcombinedvariables)    
@@ -1814,8 +1923,15 @@ function(input, output, session) {
   
   output$facetscales <- renderUI({
     items= c("fixed","free_x","free_y","free")   
-    if (!is.null(input$y)&&length(input$y) > 1 ){
+    if (is.null(input$x) && !is.null(input$y) && length(input$y) > 1 ){
       items= c("free_y","fixed","free_x","free")    
+    }
+    if (is.null(input$y) && !is.null(input$x) && length(input$x) > 1 ){
+      items= c("free_x","fixed","free_y","free")    
+    }
+    if (!is.null(input$x) && !is.null(input$y) && (length(input$y) > 1  || 
+                                                   length(input$x) > 1)  ){
+      items= c("free","fixed","free_x","free_y")    
     }
     selectInput('facetscalesin','Facet Scales:',items)
   })
@@ -1832,7 +1948,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1848,7 +1964,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1865,7 +1981,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1880,7 +1996,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items 
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -1894,7 +2010,7 @@ function(input, output, session) {
     items=names(df)
     names(items)=items
     items= items
-    items= c("None",items, "yvars","yvalues") 
+    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -2010,7 +2126,8 @@ function(input, output, session) {
                       "square filled"         ,
                       "diamond filled"        ,
                       "triangle filled"       ,
-                      "triangle down filled" 
+                      "triangle down filled"  ,
+                      "blank"
                     ), selected = shapes[i]
         ), style = "display: inline-block;")  
         
@@ -2246,6 +2363,7 @@ function(input, output, session) {
     if (input$scaleshapeswitcher=="themeuser"){
       shapes <- paste0("c(", paste0("input$shape", 1:input$nusershape, collapse = ", "), ")")
       shapes <- eval(parse(text = shapes))
+      shapes <- translate_shape_string(shapes)
       scale_shape_discrete <- function(...)
         scale_shape_manual(..., values = shapes)
     }
@@ -2377,12 +2495,11 @@ function(input, output, session) {
        
 
       
-    } else if (is.null(input$y)) {
+    } else if (is.null(input$y) || is.null(input$x)) {
       # Univariate plot
-      
-      if(is.numeric(plotdata[,input$x]) ){
-        #validate(       need(is.numeric(plotdata[,input$x]), "Please select a numeric x variable"))
-        p <- sourceable(ggplot(plotdata, aes_string(x=input$x)))
+      if(is.null(input$y)){
+      if(is.numeric(plotdata[,"xvalues"]) ){
+        p <- sourceable(ggplot(plotdata, aes_string(x="xvalues")))
         if (input$colorin != 'None')
           p <- p + aes_string(color=input$colorin)
         if (input$fillin != 'None')
@@ -2393,7 +2510,7 @@ function(input, output, session) {
           p <- p  + aes_string(linetype=input$linetypein)
         }
         
-        if (input$groupin == 'None' && !is.numeric(plotdata[,input$x]) 
+        if (input$groupin == 'None' && !is.numeric(plotdata[,"xvalues"]) 
             && input$colorin == 'None' && input$linetypein == 'None' && input$fillin == 'None')
           p <- p + aes(group=1L)
         
@@ -2562,19 +2679,240 @@ function(input, output, session) {
         }
         #### rug geom end  
       }
-      
-      if(!is.numeric(plotdata[,input$x]) ){
+      }
+      if(is.null(input$x)){
+      if(is.numeric(plotdata[,"yvalues"]) ){
+        p <- sourceable(ggplot(plotdata, aes_string(y="yvalues")))
+        if (input$colorin != 'None')
+          p <- p + aes_string(color=input$colorin)
+        if (input$fillin != 'None')
+          p <- p + aes_string(fill=input$fillin)
+        if (input$groupin != 'None')
+          p <- p + aes_string(group=input$groupin)
+        if (input$linetypein != 'None'){
+          p <- p  + aes_string(linetype=input$linetypein)
+        }
+        
+        if (input$groupin == 'None' && !is.numeric(plotdata[,"yvalues"]) 
+            && input$colorin == 'None' && input$linetypein == 'None' &&
+            input$fillin == 'None')
+          p <- p + aes(group=1L)
+        
+        if ( input$histogramaddition=="Counts"  && input$histogrambinwidth =="None"  ){
+          p <- p+ 
+            geom_histogram(aes(x=..count..), alpha=input$histogramalpha,
+                           bins = input$histonbins,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add)))+
+            xlab("Counts")
+        }
+        
+        if ( input$histogramaddition=="Counts" && input$histogrambinwidth =="userbinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..count..), alpha=input$histogramalpha,
+                           binwidth = input$histobinwidth,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add)))+
+            xlab("Counts")
+        }
+        if ( input$histogramaddition=="Counts" && input$histogrambinwidth =="autobinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..count..),alpha=input$histogramalpha,
+                           binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )} ,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add)))+
+            xlab("Counts")
+        }
+        
+        
+        
+        if ( input$histogramaddition=="Density"  && input$histogrambinwidth =="None"  ){
+          p <- p+ 
+            geom_histogram(aes(x=..density..), alpha=input$histogramalpha,
+                           bins = input$histonbins,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+        }
+        
+        if ( input$histogramaddition=="Density" && input$histogrambinwidth =="userbinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..density..), alpha=input$histogramalpha,
+                           binwidth = input$histobinwidth,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+        }
+        if ( input$histogramaddition=="Density" && input$histogrambinwidth =="autobinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..density..),alpha=input$histogramalpha, binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )} ,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+        }
+        
+        
+        if ( input$histogramaddition=="ncounts"  && input$histogrambinwidth =="None"  ){
+          p <- p+ 
+            geom_histogram(aes(x=..ncount..), alpha=input$histogramalpha,bins = input$histonbins,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xyexpansion_r_add))) +
+            xlab("Counts")
+        }
+        
+        if ( input$histogramaddition=="ncounts" && input$histogrambinwidth =="userbinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..ncount..), alpha=input$histogramalpha,
+                           binwidth = input$histobinwidth,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+        }
+        if ( input$histogramaddition=="ncounts" && input$histogrambinwidth =="autobinwidth" ){
+          p <- p+ 
+            geom_histogram(aes(x=..ncount..),alpha=input$histogramalpha, binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )} ,
+                           position =input$positionhistogram)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+        }
+        
+        
+        if ( input$densityaddition=="Density"){
+          p <- p+
+            geom_density(aes(x=..density..),alpha=input$densityalpha,adjust=input$densityadjust)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Density")
+          
+        }
+        if ( input$densityaddition=="Scaled Density"){
+          p <- p+
+            geom_density(aes(x=..scaled..),alpha=input$densityalpha,
+                         adjust=input$densityadjust)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Scaled Density")
+          
+        }
+        if ( input$densityaddition=="Counts"){
+          p <- p+
+            geom_density(aes(x=..count..),alpha=input$densityalpha,
+                         adjust=input$densityadjust)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+          
+        }
+        if ( input$densityaddition=="histocount"){
+          p <- p+
+            geom_density(aes(binwidth=input$histobinwidth,
+                             x=binwidth*..count..),
+                         alpha=input$densityalpha,adjust=input$densityadjust)+
+            scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                           input$xexpansion_r_mult),
+                                                  add  = c(input$xexpansion_l_add,
+                                                           input$xexpansion_r_add))) +
+            xlab("Counts")
+          
+        } #numeric x
+        
+        
+        ###### rug geom start
+        if(input$addrugmarks) {
+          
+          if(! input$rugignorecol){
+            p <- p +
+              geom_rug(sides = paste(input$rugsides,collapse="",sep=""),
+                       show.legend = FALSE,
+                       alpha = input$ruglinealpha,
+                       length = ggplot2::unit(input$ruglinelength ,"npc") 
+              ) 
+          }
+          if(input$rugignorecol){
+            p <- p +
+              geom_rug(sides = paste(input$rugsides,collapse="",sep=""),
+                       show.legend = FALSE,
+                       alpha = input$ruglinealpha,
+                       length = ggplot2::unit(input$ruglinelength ,"npc"),
+                       col = input$colrug
+              ) 
+          }
+          
+        }
+        if(input$addextrarugmarks &&
+           !is.null(input$xrug) &&
+           length(as.vector(input$xrug)) > 0) {
+          for(i in input$xrug) {
+            if(!input$rugignorecol){
+              p <- p +
+                geom_rug(aes_string(y=i),
+                         sides = paste(input$extrarugsides, collapse="",sep=""),
+                         show.legend = FALSE, inherit.aes = FALSE,
+                         alpha = input$ruglinealpha,
+                         length = ggplot2::unit(input$ruglinelength ,"npc")
+                )
+            }
+            if(input$rugignorecol){
+              p <- p +
+                geom_rug(aes_string(y=i),
+                         sides = paste(input$extrarugsides, collapse="",sep=""),
+                         show.legend = FALSE, inherit.aes = FALSE,
+                         alpha = input$ruglinealpha,
+                         length = ggplot2::unit(input$ruglinelength ,"npc"),
+                         col = input$colrug 
+                )
+            }
+          }
+        }
+        #### rug geom end  
+      }#numericyvalues
+      }
+      if(is.null(input$y)){
+      if(!is.numeric(plotdata[,"xvalues"]) ){
         if(input$barplotorder=="frequency"){
-          plotdata[,input$x]<- factor(as.factor(plotdata[,input$x]),
-                                      levels=names(sort(table(plotdata[,input$x]), 
+          plotdata[,"xvalues"]<- factor(as.factor(plotdata[,"xvalues"]),
+                                      levels=names(sort(table(plotdata[,"xvalues"]), 
                                                         decreasing=FALSE)))
         }
         if(input$barplotorder=="revfrequency"){
-          plotdata[,input$x]<- factor(as.factor(plotdata[,input$x]),
-                                      levels=names(sort(table(plotdata[,input$x]), 
+          plotdata[,"xvalues"]<- factor(as.factor(plotdata[,"xvalues"]),
+                                      levels=names(sort(table(plotdata[,"xvalues"]), 
                                                         decreasing=TRUE)))           
         }
-        p <- sourceable(ggplot(plotdata, aes_string(x=input$x)))
+        p <- sourceable(ggplot(plotdata, aes_string(x="xvalues")))
         
         
         
@@ -2587,17 +2925,19 @@ function(input, output, session) {
         if (input$groupin != 'None')
           p <- p + aes_string(group=input$groupin)
         
-        #if (input$groupin == 'None' & !is.numeric(plotdata[,input$x]) 
+        #if (input$groupin == 'None' & !is.numeric(plotdata[,"xvalues"]) 
         #   & input$colorin == 'None')
         # p <- p + aes(group=1)
         
-        if ( input$barplotaddition&!input$barplotpercent){
+        if ( input$barplotaddition && !input$barplotpercent){
           p <- p + 
             geom_bar(alpha=0.2,position = eval(parse(text=input$positionbar)))
           
           p <- p +
-            scale_y_continuous(expand = expansion(mult = c(input$yexpansion_l_mult,input$yexpansion_r_mult),
-                                                  add  = c(input$yexpansion_l_add, input$yexpansion_r_add))) +
+            scale_y_continuous(expand = expansion(mult = c(input$yexpansion_l_mult,
+                                                           input$yexpansion_r_mult),
+                                                  add  = c(input$yexpansion_l_add,
+                                                           input$yexpansion_r_add))) +
             ylab("Count")
           
           if ( input$barplotlabel){
@@ -2613,7 +2953,7 @@ function(input, output, session) {
               coord_flip()
           }
         }
-        if ( input$barplotaddition&input$barplotpercent){
+        if ( input$barplotaddition && input$barplotpercent){
           p <- p+  
             geom_bar(alpha=0.2,aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..])) ,
                      position = eval(parse(text=input$positionbar)))
@@ -2625,32 +2965,115 @@ function(input, output, session) {
                                       label = scales::percent(
                                         ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]))),
                                   stat = "count", vjust = 0.5,size=5,
-                                  position = eval(parse(text=input$positionbar)))    
+                                  position = eval(parse(text=input$positionbar)))+
+                ylab("Percentage")    
             }
             
           }
           
           
           p <- p +   scale_y_continuous(labels = percent,
-                                       expand = expansion(mult = c(input$yexpansion_l_mult,input$yexpansion_r_mult),
-                                                          add  = c(input$yexpansion_l_add, input$yexpansion_r_add))) +
+                                       expand = expansion(mult = c(input$yexpansion_l_mult,
+                                                                   input$yexpansion_r_mult),
+                                                          add  = c(input$yexpansion_l_add,
+                                                                   input$yexpansion_r_add))) +
             ylab("Percentage")
           if ( input$barplotflip){
             p <- p +
               coord_flip()
           }
         }
-      }
-    } else {
+      }# not numericx
+       }#null y
+      if(is.null(input$x)){
+        if(!is.numeric(plotdata[,"yvalues"]) ){
+          if(input$barplotorder=="frequency"){
+            plotdata[,"yvalues"]<- factor(as.factor(plotdata[,"yvalues"]),
+                                          levels=names(sort(table(plotdata[,"yvalues"]), 
+                                                            decreasing=FALSE)))
+          }
+          if(input$barplotorder=="revfrequency"){
+            plotdata[,"yvalues"]<- factor(as.factor(plotdata[,"yvalues"]),
+                                          levels=names(sort(table(plotdata[,"yvalues"]), 
+                                                            decreasing=TRUE)))           
+          }
+          p <- sourceable(ggplot(plotdata, aes_string(y="yvalues")))
+          
+          if (input$colorin != 'None')
+            p <- p + aes_string(color=input$colorin)
+          
+          if (input$fillin != 'None')
+            p <- p + aes_string(fill=input$fillin)
+          
+          if (input$groupin != 'None')
+            p <- p + aes_string(group=input$groupin)
+          
+          if ( input$barplotaddition && !input$barplotpercent){
+            p <- p + 
+              geom_bar(alpha=0.2,position = eval(parse(text=input$positionbar)))
+            
+            p <- p +
+              scale_x_continuous(expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                             input$xexpansion_r_mult),
+                                                    add  = c(input$xexpansion_l_add,
+                                                             input$xexpansion_r_add))) +
+              xlab("Count")
+            
+            if ( input$barplotlabel){
+              p <- p+   geom_text(aes(x = ((..count..)),
+                                      label = ((..count..))),
+                                  stat = "count", vjust = 0.5,size=5,
+                                  position = eval(parse(text=input$positionbar)))
+            }
+            
+            
+            if ( input$barplotflip){
+              p <- p +
+                coord_flip()
+            }
+          }
+          if ( input$barplotaddition && input$barplotpercent){
+            p <- p+  
+              geom_bar(alpha=0.2,aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..])) ,
+                       position = eval(parse(text=input$positionbar)))
+            
+            if ( input$barplotlabel){
+              if(input$positionbar!="position_fill(vjust = 0.5)")
+              {
+                p <- p+   geom_text(aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                        label = scales::percent(
+                                          ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]))),
+                                    stat = "count", vjust = 0.5,size=5,
+                                    position = eval(parse(text=input$positionbar)))+
+                  ylab("Percentage")    
+              }
+              
+            }
+            
+            
+            p <- p +   scale_x_continuous(labels = percent,
+                                          expand = expansion(mult = c(input$xexpansion_l_mult,
+                                                                      input$xexpansion_r_mult),
+                                                             add  = c(input$xexpansion_l_add,
+                                                                      input$xexpansion_r_add))) +
+              ylab("Percentage")
+            if ( input$barplotflip){
+              p <- p +
+                coord_flip()
+            }
+          }
+        }# not numeric yvalues no x
+      } # is null x   
+    } else { # end of univariate
       # X-Y plot
       
-      p <- sourceable(ggplot(plotdata, aes_string(x=input$x, y="yvalues")))
+      p <- sourceable(ggplot(plotdata, aes_string(x="xvalues", y="yvalues")))
       
       p <- p # helps in initializing the scales
       
       if (input$showtarget)  {
         if (is.numeric( plotdata[,"yvalues"] ) ) {
-          if (!is.numeric( plotdata[,input$x] )){
+          if (!is.numeric( plotdata[,"xvalues"] )){
             p <-   p   + scale_x_discrete() }
           
           p <-   p   +
@@ -2666,7 +3089,7 @@ function(input, output, session) {
       
       if (input$showtarget2)  {
         if ( is.numeric( plotdata[,"yvalues"] ) ) {
-          if (!is.numeric( plotdata[,input$x] )){
+          if (!is.numeric( plotdata[,"xvalues"] )){
             p <-   p   + scale_x_discrete() }
           
           p <-   p   +
@@ -2694,10 +3117,10 @@ function(input, output, session) {
         p <- p  + aes_string(linetype=input$linetypein)
       }
       
-      # if (input$groupin != 'None' & !is.factor(plotdata[,input$x]))
+      # if (input$groupin != 'None' & !is.factor(plotdata[,"xvalues"]))
       if (input$groupin != 'None')
         p <- p + aes_string(group=input$groupin)
-      if (input$groupin == 'None' & !is.numeric(plotdata[,input$x]) 
+      if (input$groupin == 'None' & !is.numeric(plotdata[,"xvalues"]) 
           & input$colorin == 'None')
         p <- p + aes(group=1)
       
@@ -2763,21 +3186,21 @@ function(input, output, session) {
         if (input$pointshapein != 'None' && input$pointignoreshape){
           if (input$pointsizein == 'None'&& !input$pointignorecol)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& !input$pointignorecol&& !input$pointignoresize)
             p <- p + geom_point(alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& !input$pointignorecol&& input$pointignoresize)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           
           if (input$pointsizein == 'None'&&input$pointignorecol)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,
                                 colour=input$colpoint,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& input$pointignorecol&& !input$pointignoresize)
             p <- p + geom_point(alpha=input$pointstransparency,colour=input$colpoint,
@@ -2790,28 +3213,28 @@ function(input, output, session) {
         if(input$pointshapein == 'None' ){
           if (input$pointsizein == 'None'&& !input$pointignorecol)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& !input$pointignorecol&& !input$pointignoresize)
             p <- p + geom_point(alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& !input$pointignorecol&& input$pointignoresize)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           
           if (input$pointsizein == 'None'&&input$pointignorecol)
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,colour=input$colpoint,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& input$pointignorecol&& !input$pointignoresize)
             p <- p + geom_point(alpha=input$pointstransparency,colour=input$colpoint,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           if (input$pointsizein != 'None'&& input$pointignorecol && input$pointignoresize )
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,colour=input$colpoint,
-                                shape=input$pointshapes,
+                                shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
           
           
@@ -3042,7 +3465,7 @@ function(input, output, session) {
                 p <- p + 
                   stat_sum_df("mean_cl_normal", geom = "point",
                               alpha=input$alphameanp,
-                              shape=input$meanshapes,
+                              shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               
               if(input$meanpoints && input$pointsizein == 'None')           
@@ -3050,7 +3473,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = "point",
                               size=input$meanpointsize,
                               alpha=input$alphameanp,
-                              shape=input$meanshapes,
+                              shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
             }
           
@@ -3060,7 +3483,7 @@ function(input, output, session) {
             p <-   p   +
               stat_summary(fun.data = mean.n, geom = input$geommeanlabel,
                            alpha=input$alphameanlabel,
-                           fun.y = mean,
+                           fun = mean,
                            fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)
@@ -3069,7 +3492,7 @@ function(input, output, session) {
             p <-   p   +
               stat_summary(fun.data = give.n,  geom = input$geommeanlabel,
                            alpha=input$alphameanlabel,
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
@@ -3184,7 +3607,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = "point",
                               col=meancolp,
                               alpha=input$alphameanp,
-                              shape=input$meanshapes,
+                              shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               
               if(input$meanpoints && input$pointsizein == 'None')           
@@ -3192,7 +3615,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = "point",
                               col=meancolp,
                               size=input$meanpointsize,
-                              alpha=input$alphameanp,shape=input$meanshapes,
+                              alpha=input$alphameanp,shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               
             }
@@ -3201,14 +3624,14 @@ function(input, output, session) {
             p <-   p   +
               stat_summary(fun.data = mean.n, geom = input$geommeanlabel,
                            alpha=input$alphameanlabel,
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            col=meancolp,position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)
           }
           if (input$Mean!="None" && input$meanN)  {
             p <-   p   +
               stat_summary(fun.data = give.n,  geom = input$geommeanlabel,alpha=input$alphameanlabel,
-                           fun.y = mean, fontface = "bold", col=meancolp,position = eval(parse(text=positionmean)),
+                           fun = mean, fontface = "bold", col=meancolp,position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
           
@@ -3311,13 +3734,13 @@ function(input, output, session) {
               if(input$meanpoints && input$pointsizein != 'None')           
                 p <- p + 
                   stat_sum_df("mean_cl_normal", geom = "point",aes(group=NULL),
-                              alpha=input$alphameanp,shape=input$meanshapes,
+                              alpha=input$alphameanp,shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               if(input$meanpoints&input$pointsizein == 'None')           
                 p <- p + 
                   stat_sum_df("mean_cl_normal", geom = "point",aes(group=NULL),
                               size=input$meanpointsize,
-                              alpha=input$alphameanp,shape=input$meanshapes,
+                              alpha=input$alphameanp,shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               
             }
@@ -3327,7 +3750,7 @@ function(input, output, session) {
               stat_summary(fun.data = mean.n, geom = input$geommeanlabel,
                            alpha=input$alphameanlabel,
                            aes(group=NULL),
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)
           }
@@ -3336,7 +3759,7 @@ function(input, output, session) {
               stat_summary(fun.data = give.n,  geom = input$geommeanlabel,
                            alpha=input$alphameanlabel,
                            aes(group=NULL),
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
@@ -3445,12 +3868,12 @@ function(input, output, session) {
               if(input$meanpoints &input$pointsizein != 'None')           
                 p <- p + 
                   stat_sum_df("mean_cl_normal", geom = "point",col=meancolp,aes(group=NULL),
-                              alpha=input$alphameanp,shape=input$meanshapes,
+                              alpha=input$alphameanp,shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
               if(input$meanpoints && input$pointsizein == 'None')           
                 p <- p + 
                   stat_sum_df("mean_cl_normal", geom = "point",col=meancolp,aes(group=NULL),
-                              size=input$meanpointsize,alpha=input$alphameanp,shape=input$meanshapes,
+                              size=input$meanpointsize,alpha=input$alphameanp,shape=translate_shape_string(input$meanshapes),
                               position = eval(parse(text=positionmean)))
             }
 
@@ -3458,7 +3881,7 @@ function(input, output, session) {
             p <-   p   +
               stat_summary(fun.data = mean.n, geom = input$geommeanlabel,alpha=input$alphameanlabel,
                            col=meancolp,aes(group=NULL),
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)
           }
@@ -3466,7 +3889,7 @@ function(input, output, session) {
             p <-   p   +
               stat_summary(fun.data = give.n,  geom = input$geommeanlabel,alpha=input$alphameanlabel,
                            col=meancolp,aes(group=NULL),
-                           fun.y = mean, fontface = "bold",
+                           fun = mean, fontface = "bold",
                            position = eval(parse(text=positionmean)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
@@ -4053,7 +4476,8 @@ function(input, output, session) {
           if(input$Median!="None" && input$forcemedianshape)    {
             if(input$medianpoints && input$pointsizein != 'None')           
               p <- p + 
-                stat_sum_single(median, geom = "point",alpha=input$alphamedianp,shape=input$medianshapes,
+                stat_sum_single(median, geom = "point",alpha=input$alphamedianp,
+                                shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
             
             if(input$medianpoints && input$pointsizein == 'None')           
@@ -4061,20 +4485,20 @@ function(input, output, session) {
                 stat_sum_single(median, geom = "point",
                                 size=input$medianpointsize,
                                 alpha=input$alphamedianp,
-                                shape=input$medianshapes,
+                                shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
           }
           
           if (input$Median!="None" && input$medianvalues )  {
             p <-   p   +
               stat_summary(fun.data = median.n,geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",position = eval(parse(text=positionmedian)),
+                           fun = median, fontface = "bold",position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)
           }
           if (input$Median!="None" && input$medianN)  {
             p <-   p   +
               stat_summary(fun.data = give.n, geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold", position = eval(parse(text=positionmedian)),
+                           fun = median, fontface = "bold", position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)      
           }  
         } # do not ignore col
@@ -4203,27 +4627,27 @@ function(input, output, session) {
                 stat_sum_single(median, geom = "point",
                                 col=mediancolp,
                                 alpha=input$alphamedianp,
-                                shape=input$medianshapes ,
+                                shape=translate_shape_string(input$medianshapes) ,
                                 position = eval(parse(text=positionmedian)))
             
             if(input$medianpoints && input$pointsizein == 'None')           
               p <- p + 
                 stat_sum_single(median, geom = "point",col=mediancolp ,
                                 alpha=input$alphamedianp,
-                                size=input$medianpointsize,shape=input$medianshapes,
+                                size=input$medianpointsize,shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
           }
           
           if (input$Median!="None" && input$medianvalues )  {
             p <-   p   +
               stat_summary(fun.data = median.n,geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",colour=mediancoll,position = eval(parse(text=positionmedian)),
+                           fun = median, fontface = "bold",colour=mediancoll,position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)
           }
           if (input$Median!="None" && input$medianN)  {
             p <-   p   +
               stat_summary(fun.data = give.n, geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold", colour=mediancolp,position = eval(parse(text=positionmedian)),
+                           fun = median, fontface = "bold", colour=mediancolp,position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)      
           }       
           
@@ -4336,7 +4760,8 @@ function(input, output, session) {
             
             if(input$medianpoints && input$pointsizein != 'None')           
               p <- p + 
-                stat_sum_single(median, geom = "point",aes(group=NULL),alpha=input$alphamedianp,shape=input$medianshapes,
+                stat_sum_single(median, geom = "point",aes(group=NULL),alpha=input$alphamedianp,
+                                shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
             
             
@@ -4344,21 +4769,22 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_single(median, geom = "point",aes(group=NULL),
                                 alpha=input$alphamedianp,
-                                size=input$medianpointsize,shape=input$medianshapes,
+                                size=input$medianpointsize,
+                                shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
           }
           
           if (input$Median!="None" && input$medianvalues )  {
             p <-   p   +
               stat_summary(fun.data = median.n, aes(group=NULL),geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",position = eval(parse(text=positionmedian)), #fill="white",
+                           fun = median, fontface = "bold",position = eval(parse(text=positionmedian)), #fill="white",
                            show.legend=FALSE,
                            size=6, seed=1234)
           }
           if (input$Median!="None" && input$medianN)  {
             p <-   p   +
               stat_summary(fun.data = give.n, aes(group=NULL), geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",position = eval(parse(text=positionmedian)), #fill="white",
+                           fun = median, fontface = "bold",position = eval(parse(text=positionmedian)), #fill="white",
                            show.legend=FALSE,size=6, seed=1234)      
           }
           
@@ -4485,7 +4911,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_single(median, geom = "point",col=mediancolp,
                                 alpha=input$alphamedianp,
-                                aes(group=NULL),shape=input$medianshapes,
+                                aes(group=NULL),shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
             
             if(input$medianpoints && input$pointsizein == 'None')           
@@ -4493,20 +4919,21 @@ function(input, output, session) {
                 stat_sum_single(median, geom = "point",
                                 col=mediancolp,
                                 alpha=input$alphamedianp,
-                                aes(group=NULL),size=input$medianpointsize,shape=input$medianshapes,
+                                aes(group=NULL),size=input$medianpointsize,
+                                shape=translate_shape_string(input$medianshapes),
                                 position = eval(parse(text=positionmedian)))
           } 
           
           if (input$Median!="None" && input$medianvalues )  {
             p <-   p   +
               stat_summary(fun.data = median.n, aes(group=NULL),geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold",colour=mediancoll,
+                           fun = median, fontface = "bold",colour=mediancoll,
                            position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)}
           if (input$Median!="None" && input$medianN)  {
             p <-   p   +
               stat_summary(fun.data = give.n, aes(group=NULL), geom = input$geommedianlabel,alpha=input$alphamedianlabel,
-                           fun.y = median, fontface = "bold", colour=mediancolp,
+                           fun = median, fontface = "bold", colour=mediancolp,
                            position = eval(parse(text=positionmedian)),
                            show.legend=FALSE,size=6, seed=1234)      
           }
@@ -4746,7 +5173,16 @@ function(input, output, session) {
       
       #### data label Start
       if(input$addcustomlabel&&input$labeltextin != 'None') {
-        p <- p + aes_string(label = input$labeltextin)
+        
+        if ( is.numeric(plotdata[,input$labeltextin]) && input$roundlabeldigits) {
+            p <- p + aes_string(label = paste("round(",input$labeltextin,",",input$nroundlabeldigits,")"))
+        }
+        if ( is.numeric(plotdata[,input$labeltextin]) && !input$roundlabeldigits) {
+          p <- p + aes_string(label = input$labeltextin)
+        }          
+        if ( !is.numeric(plotdata[,input$labeltextin]) ) {
+          p <- p + aes_string(label = input$labeltextin)
+        }
         
         if(!input$customlabelignorecol ) {
           if(!input$addcustomlabelignoregroup) {
@@ -4866,7 +5302,7 @@ function(input, output, session) {
           plotdata[,"status"]<- plotdata[,"yvalues"]
         }
         
-        p <- sourceable(ggplot(plotdata, aes_string(time=input$x, status="status")))
+        p <- sourceable(ggplot(plotdata, aes_string(time="xvalues", status="status")))
         if (input$colorin != 'None')
           p <- p + aes_string(color=input$colorin)
         if (input$fillin != 'None')
@@ -4875,7 +5311,7 @@ function(input, output, session) {
           p <- p + aes_string(linetype=input$linetypein)
         
         if( !input$KMignoregroup){
-          if (input$groupin != 'None' && !is.factor(plotdata[,input$x]) ){ 
+          if (input$groupin != 'None' && !is.factor(plotdata[,"xvalues"]) ){ 
             p <- p + aes_string(group=input$groupin)
           }
         }
@@ -4940,7 +5376,7 @@ function(input, output, session) {
         if(input$KM!="None" && (input$addmediansurv== "addmediansurvival" ||
                                 input$addmediansurv== "addmediancisurvival" ||
                                 input$addrisktable) ){
-          timevar  <- input$x
+          timevar  <- "xvalues"
           statusvar<- "status"
           colorinputvar <-   ifelse(input$kmignorecol,"None" ,input$colorin) 
           fillinputvar <-  input$fillin
@@ -5123,7 +5559,7 @@ function(input, output, session) {
 }
       } ###### KM SECTION END still need to fix y scale labels
       
-      p <- p + xlab(input$x)
+      p <- p + xlab("xvalues")
     }
     
     if (!input$show_pairs) {
@@ -5478,7 +5914,7 @@ function(input, output, session) {
       }
       
       if (input$xaxisscale=="logx" &&
-          is.numeric(plotdata[,input$x])) {
+          is.numeric(plotdata[,"xvalues"])) {
         
         if (!input$customxticks){
           if (input$xaxisformat=="default") {
@@ -5547,7 +5983,7 @@ function(input, output, session) {
       }#logx      
 
       if (input$xaxisscale=="linearx" &&
-          is.numeric(plotdata[,input$x])) {
+          is.numeric(plotdata[,"xvalues"])) {
         if (!input$customxticks){
         if (input$xaxisformat=="default") {
           p <- p  + 
@@ -5625,6 +6061,12 @@ function(input, output, session) {
       }
       if (!is.null(input$y) && length(input$y) < 2 && input$ylab=="" ){
         p <- p + ylab(input$y)
+      }
+      if (!is.null(input$x) && length(input$x) >= 2 && input$xlab=="" ){
+        p <- p + xlab("X variable(s)")
+      }
+      if (!is.null(input$x) && length(input$x) < 2 && input$xlab=="" ){
+        p <- p + xlab(input$x)
       }
       
       if (input$horizontalzero)
@@ -5780,7 +6222,7 @@ function(input, output, session) {
       if (all(
         input$yaxiszoom=='noyzoom'&&
         !is.null(input$xaxiszoomin[1])&&
-        is.numeric(plotdata[,input$x] )&&
+        is.numeric(plotdata[,"xvalues"] )&&
         input$facetscalesin!="free_x"&&
         input$facetscalesin!="free")
       ){
@@ -5828,7 +6270,7 @@ function(input, output, session) {
       
       
       if (all(!is.null(input$xaxiszoomin[1])&&
-              is.numeric(plotdata[,input$x] ) && !is.null(plotdata$yvalues) &&
+              is.numeric(plotdata[,"xvalues"] ) && !is.null(plotdata$yvalues) &&
               is.numeric(plotdata[,"yvalues"]) &&
               input$facetscalesin!="free_x"&&input$facetscalesin!="free_y"&&
               input$facetscalesin!="free")
@@ -6016,7 +6458,8 @@ function(input, output, session) {
       }
       
       p <-  p+
-        theme(axis.text.y = y.axis.text )                              
+        theme(axis.text.y = y.axis.text,
+              axis.text.y.left = y.axis.text)                              
     }  
     if (input$striptextsizex <= 0) {
       x.strip.text <- ggplot2::element_blank()
@@ -6095,7 +6538,7 @@ function(input, output, session) {
     }
     if(input$rmyaxistickslabels){
       p <-  p+
-        theme(axis.text.y=element_blank(),
+        theme(axis.text.y=element_blank(),axis.text.y.left=element_blank(),
               axis.ticks.y=element_blank())
     }
     
@@ -6146,7 +6589,7 @@ function(input, output, session) {
   output$plot_clickedpoints <- renderTable({
     df<- finalplotdata()  
     validate(       need(!is.null(df), "Please select a data set"))
-    res <- nearPoints(df, input$plot_click, input$x, "yvalues")
+    res <- nearPoints(df, input$plot_click, "xvalues", "yvalues")
     if (nrow(res) == 0|is.null(res))
       return(NULL)
     res
@@ -6154,7 +6597,7 @@ function(input, output, session) {
   output$plot_brushedpoints <- renderTable({
     df<- finalplotdata()  
     validate(       need(!is.null(df), "Please select a data set"))
-    res <- brushedPoints(df, input$plot_brush, input$x,"yvalues")
+    res <- brushedPoints(df, input$plot_brush, "xvalues","yvalues")
     if (nrow(res) == 0|is.null(res))
       return(NULL)
     res
@@ -6243,9 +6686,9 @@ function(input, output, session) {
     items=names(tabledata())
     names(items)=items
     items= items
-    items= items[!is.element(items,input$x)]
+    items= items[!is.element(items,"xvalues")]
     items =c(None='.',items)
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
@@ -6276,6 +6719,8 @@ function(input, output, session) {
     )
     validate(need(!is.null(input$y), 
                   "No y variable(s) selected"))
+    validate(need(!is.null(input$x), 
+                  "No x variable(s) selected"))
     req(input$dstatscolextrain)
     
     tabledata <- df
@@ -6391,7 +6836,7 @@ function(input, output, session) {
         }
       }
       LHS <- paste(vars, collapse=" + ")
-      RHS <- input$x
+      RHS <- input$x[1]
       if (!is.null(df[[input$dstatscolextrain]])) {
         RHS <- paste(c(RHS, input$dstatscolextrain), collapse=" * ")
         if (!is.null(input$flipthelevelsin)&&input$flipthelevelsin )

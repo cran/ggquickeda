@@ -23,15 +23,48 @@ suppressMessages({
   library(ggstance)
   library(GGally)
 })
+###########################
+#### ARIDHIA ADDITIONS ####
+suppressMessages({
+  library(shinyFiles)
+  library(RPostgres)
+})
+
+DATABASE_CONN <- NULL
+PGDATABASE <- Sys.getenv("PGDATABASE")
+PGHOST <- Sys.getenv("PGHOST")
+PORT <- Sys.getenv("PORT")
+PGUSER <- Sys.getenv("PGUSER")
+PGPASSWORD <- Sys.getenv("PGPASSWORD")
+if (PGDATABASE != "" && PGHOST != "" && PORT != "" && PGUSER != "" && PGPASSWORD != "") {
+  if (dbCanConnect(RPostgres::Postgres(),
+                   dbname = PGDATABASE,
+                   host = PGHOST,
+                   port = PORT,
+                   user = PGUSER,
+                   password = PGPASSWORD)
+  ) {
+    # get connection to database
+    DATABASE_CONN <- dbConnect(RPostgres::Postgres(),
+                               dbname = PGDATABASE,
+                               host = PGHOST,
+                               port = PORT,
+                               user = PGUSER,
+                               password = PGPASSWORD)
+  }
+}
+
+#### ARIDHIA ADDITIONS ####
+###########################
 #source("gradientInput.R") pending a shinyjqui fix
 
 options(shiny.maxRequestSize=250*1024^2) 
 
 stat_sum_df <- function(fun, geom="point", ...) {
-  stat_summary(fun.data=fun,  geom=geom,  ...)
+  stat_summary(fun.data = fun,  geom=geom,  ...)
 }
 stat_sum_single <- function(fun, geom="point", ...) {
-  stat_summary(fun.y=fun,  geom=geom,  ...)
+  stat_summary(fun = fun,  geom=geom,  ...)
 }
 
 median.n <- function(x){
@@ -170,3 +203,85 @@ inline_ui <- function(tag) {
   div(style = "display: inline-block", tag)
 }
 
+translate_shape_string <- function(shape_string) {
+  if (nchar(shape_string[1]) <= 1) {
+    return(shape_string)
+  }
+  pch_table <- c(
+    "square open"           = 0,
+    "circle open"           = 1,
+    "triangle open"         = 2,
+    "plus"                  = 3,
+    "cross"                 = 4,
+    "diamond open"          = 5,
+    "triangle down open"    = 6,
+    "square cross"          = 7,
+    "asterisk"              = 8,
+    "diamond plus"          = 9,
+    "circle plus"           = 10,
+    "star"                  = 11,
+    "square plus"           = 12,
+    "circle cross"          = 13,
+    "square triangle"       = 14,
+    "triangle square"       = 14,
+    "square"                = 15,
+    "circle small"          = 16,
+    "triangle"              = 17,
+    "diamond"               = 18,
+    "circle"                = 19,
+    "bullet"                = 20,
+    "circle filled"         = 21,
+    "square filled"         = 22,
+    "diamond filled"        = 23,
+    "triangle filled"       = 24,
+    "triangle down filled"  = 25,
+    "blank"                 = NA
+  )
+  
+  shape_match <- charmatch(shape_string, names(pch_table))
+  
+  invalid_strings <- is.na(shape_match)
+  nonunique_strings <- shape_match == 0
+  
+  if (any(invalid_strings)) {
+    bad_string <- unique(shape_string[invalid_strings])
+    n_bad <- length(bad_string)
+    
+    collapsed_names <- sprintf("\n* '%s'", bad_string[1:min(5, n_bad)])
+    
+    more_problems <- if (n_bad > 5) {
+      sprintf("\n* ... and %d more problem%s", n_bad - 5, ifelse(n_bad > 6, "s", ""))
+    } else {
+      ""
+    }
+    
+    abort(glue("Can't find shape name:", collapsed_names, more_problems))
+  }
+  
+  if (any(nonunique_strings)) {
+    bad_string <- unique(shape_string[nonunique_strings])
+    n_bad <- length(bad_string)
+    
+    n_matches <- vapply(
+      bad_string[1:min(5, n_bad)],
+      function(shape_string) sum(grepl(paste0("^", shape_string), names(pch_table))),
+      integer(1)
+    )
+    
+    collapsed_names <- sprintf(
+      "\n* '%s' partially matches %d shape names",
+      bad_string[1:min(5, n_bad)], n_matches
+    )
+    
+    more_problems <- if (n_bad > 5) {
+      sprintf("\n* ... and %d more problem%s", n_bad - 5, ifelse(n_bad > 6, "s", ""))
+    } else {
+      ""
+    }
+    
+    abort(glue("Shape names must be unambiguous:", collapsed_names, more_problems))
+  }
+  
+  unname(pch_table[shape_match])
+}
+translate_shape_string("circle")
