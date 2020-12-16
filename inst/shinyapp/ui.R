@@ -5,9 +5,8 @@ fluidPage(
   titlePanel(paste("Welcome to ggquickeda!",utils::packageVersion("ggquickeda"))),
   sidebarLayout(
     sidebarPanel(
-      tabsetPanel(
-        tabPanel(
-          "Inputs", 
+      tabsetPanel(id = "sidebar_upper_menus", selected="sidebar_inputs",
+        tabPanel("Inputs", value = "sidebar_inputs", 
           tags$style(".shiny-file-input-progress {margin-bottom: 0px;margin-top: 0px}"),
           tags$style(".form-group {margin-bottom: 0px;margin-top: 0px}"),
           tags$div(
@@ -107,15 +106,14 @@ fluidPage(
               numericInput("rounddigits",label = "N Digits",value = 0,min=0,max=10)
             ),
             
-            tabPanel(
-              "Reorder Facets or axis Levels",
+            tabPanel("Reorder Facets or axis Levels", value = "reorder_facet_axis",
               h6("Operations in this tab will only take effect on the plot and not the table."),
               uiOutput("reordervar"),
               conditionalPanel(
                 condition = "input.reordervarin!='' " ,
                 selectizeInput(
                   "functionordervariable", 'By the:',
-                  choices =c("Median","Mean","Minimum","Maximum","N", "SD") ,multiple=FALSE)
+                  choices =c("Median","Mean","Minimum","Maximum","N","N Unique","SD","Sum") ,multiple=FALSE)
               ),
               uiOutput("variabletoorderby"),
               conditionalPanel(
@@ -125,6 +123,8 @@ fluidPage(
               
               uiOutput("reordervar2"),
               uiOutput("reordervar2values"),
+              uiOutput("reordervar3"),
+              uiOutput("reordervar3values"),
               selectizeInput("change_labels_stat_var", "Change levels of this variable:",
                              choices = list(), multiple = FALSE,
                              options = list(placeholder = 'Please select a variable')
@@ -133,19 +133,23 @@ fluidPage(
                 "input.change_labels_stat_var != ''",
                 "Old labels", textOutput("change_labels_stat_old", inline = TRUE),
                 textInput("change_labels_stat_levels", label = "")
+              ),
+              selectizeInput("change_labels_stat_var_2", "Change levels of this variable:",
+                             choices = list(), multiple = FALSE,
+                             options = list(placeholder = 'Please select a variable')
+              ),
+              conditionalPanel(
+                "input.change_labels_stat_var_2 != ''",
+                "Old labels", textOutput("change_labels_stat_old_2", inline = TRUE),
+                textInput("change_labels_stat_levels_2", label = "")
               )
             )
           ),
           hr()
         ), # tabsetPanel
-        
-        
-        tabPanel(
-          "Graph Options",
-          tabsetPanel(
-            id = "graphicaloptions",
-            tabPanel(
-              "X/Y Axes Log/Labels",
+        tabPanel("Graph Options", value= "sidebar_Graph_Options",
+          tabsetPanel(id = "graphicaloptions", selected = "x_y_loglabels",
+            tabPanel("X/Y Axes Log/Labels", value = "x_y_loglabels",
               hr(),
               textInput('ylab', 'Y axis label', value = "") ,
               textInput('xlab', 'X axis label', value = "") ,
@@ -155,11 +159,12 @@ fluidPage(
                            c("Panel" = "panel",
                              "Plot" = "plot"), inline = TRUE),
               textInput('caption', 'Plot Caption', value = "") ,
+              textInput('plottag', 'Plot Tag', value = "") ,
               radioButtons("captionposition", "Caption Positioning:",
                            c("Panel" = "panel",
                              "Plot" = "plot"), inline = TRUE),
               hr(),
-              
+              conditionalPanel(condition = "!input.show_pairs",
               fluidRow(
                 column(6,
                        radioButtons("yaxisscale", "Y Axis scale:",
@@ -238,11 +243,12 @@ fluidPage(
                                                      "Bottom"="b"),
                                            multiple=TRUE, selectize=TRUE,selected="l")
               )
+              )# conditional on pairs is off
             ),
-            tabPanel(
-              "Graph Size/Zoom",
+            tabPanel("Graph Size/Zoom", value = "graph_size_zoom",
               sliderInput("height", "Plot Height", min=1080/4, max=1080, value=480, animate = FALSE),
-              h6("X Axis Zoom only works if facet x scales are not set to be free. The automatic setting generate a slider has limits between your x variable min/max otherwise select User Defined to input your own."),
+              conditionalPanel(condition = "!input.show_pairs",
+              h6("X Axis Zoom is available if you have exactly one x variable and facet x scales are not set to be free. The automatic setting generates a slider has limits between your x variable min/max otherwise select User Defined to input your own."),
               fluidRow(
                 column(12,
                        radioButtons("xaxiszoom", "X Axis Zoom:",
@@ -306,11 +312,10 @@ fluidPage(
                        )
                 )
               ) # fluidrow
-              
+              ) # conditional on not show pairs
             ),#tabpanel zoom
             
-            tabPanel(
-              "Customization of Legend(s)",
+            tabPanel("Customization of Legend(s)", value = "custom_legends",
               selectInput('legendposition', label ='Legend Position',
                           choices=c("left", "right", "bottom", "top","none","custom"),
                           multiple=FALSE, selectize=TRUE,selected="bottom"),
@@ -423,9 +428,7 @@ fluidPage(
                 )
   
             ),
-            tabPanel(
-              "Facets Options",
-              
+            tabPanel("Facets Options", value = "facet_options",
               tabsetPanel(
                 tabPanel("Facet Scales, Spaces, Positioning, Ordering",
                          uiOutput("facetscales"),
@@ -566,8 +569,7 @@ fluidPage(
               )
               ),
             
-            tabPanel(
-              "Reference Lines/Target",
+            tabPanel("Reference Lines/Target", value ="ref_line_target_options",
               checkboxInput('identityline', 'Identity Line')    ,   
               checkboxInput('horizontalzero', 'Horizontal Zero Line'),
               checkboxInput('customvline1', 'Vertical Line 1'),
@@ -640,7 +642,7 @@ fluidPage(
               
             ),
             tabPanel(
-              "Themes and Manual Scales Options",
+              "Themes and Color/other Scales Options", value = "themes_color_other",
               sliderInput("themebasesize", "Theme Size (affects all text except facet strip):",
                           min=1, max=100, value=c(16),step=1),
               checkboxInput('themebw', 'Use Black and White Theme ?',value=TRUE),
@@ -648,6 +650,85 @@ fluidPage(
                 "backgroundcol","Background Color",value =  "white",
                 showColour = "both",allowTransparent = TRUE,returnName=TRUE),
               checkboxInput('panelontop', 'Place the Panel gridlines and background over the data ?',value=FALSE),
+              checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE),
+              tabsetPanel(
+                tabPanel("Discrete Color and Fill Scale",
+                         radioButtons("themecolorswitcher", "Discrete Color and Fill Scale:",
+                                      c("Tableau 10"  = "themetableau10",
+                                        "Tableau 20"  = "themetableau20",
+                                        "Color Blind" = "themecolorblind",
+                                        "Color Blind 2" = "themecolorblind2",
+                                        "ggplot default" = "themeggplot",
+                                        "viridis"        = "themeviridis",
+                                        "User defined" = "themeuser")
+                                      ,inline=TRUE),
+                         h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
+                 Try to use Tableau 20 or ggplot default. Color Blind and Color Blind 2 Themes support up to 8 colors.
+                 Contact me if you want to add your own set of colors."),
+                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
+                                          sliderInput("nusercol", "N of User Colors:",
+                                                      min=2, max=30, value=c(10),step=1)
+                         ),
+                         uiOutput('userdefinedcolor'),
+                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
+                                          actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
+                                          actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
+                                          
+                         )
+                ),
+                tabPanel("Discrete Shape Scale",
+                         radioButtons("scaleshapeswitcher", "Discrete Shape Scale:",
+                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+                         conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
+                                          sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
+                         ),
+                         uiOutput('userdefinedshape')
+                ),
+                tabPanel("Discrete Linetype Scale",
+                         radioButtons("scalelinetypeswitcher", "Discrete Linetype Scale:",
+                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
+                         conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
+                                          sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
+                         ),
+                         uiOutput('userdefinedlinetype')
+                ),
+                tabPanel("Continuous Color and Fill Scale",
+                         radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
+                                      c("Red White Blue"  = "RedWhiteBlue",
+                                        "Red White Green"  = "RedWhiteGreen",
+                                        "ggplot default" = "themeggplot",
+                                        "viridis" = "themeviridis",
+                                        "User defined" = "themeuser")
+                                      ,inline=TRUE),
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                                             input.themecontcolorswitcher=='RedWhiteGreen'" ,
+                                          colourpicker::colourInput(
+                                            "midcolor",
+                                            "Midpoint Color",
+                                            value ="white",
+                                            showColour = "both",
+                                            allowTransparent = FALSE,returnName = TRUE)
+                         ),
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                                             input.themecontcolorswitcher=='RedWhiteGreen'|
+                                             input.themecontcolorswitcher=='themeuser'" ,
+                                          numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
+                                                       value = 0)
+                         ),
+                         # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                         #                  gradientInputUI("gradientcol", "100%", "www"),
+                         #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
+                         #                  ),
+                         
+                         
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                                          uiOutput('userdefinedcontcolor'),
+                                          actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
+                                          
+                         )    
+                         
+                )
+              ),
               tabsetPanel(
                 tabPanel("Grid Lines",
                          div(
@@ -724,97 +805,18 @@ fluidPage(
                                         value = 0,min=0,max=NA,width='120px'))
                 )
               ),
-              hr(),
               checkboxInput('themeaspect', 'Use custom aspect ratio ?'),
               h6("Setting aspect ratio does not work when facets spacing x or y is free."),
               conditionalPanel(condition = "input.themeaspect" , 
                                numericInput("aspectratio",label = "Y/X ratio",
-                                            value = 1,min=0.1,max=10,step=0.01)),
-              checkboxInput('themecolordrop', 'Keep All levels of Colors and Fills ?',value=TRUE) , 
-              tabsetPanel(
-                tabPanel("Discrete Color and Fill Scale",
-                            radioButtons("themecolorswitcher", "Discrete Color and Fill Scale:",
-                           c("Tableau 10"  = "themetableau10",
-                             "Tableau 20"  = "themetableau20",
-                             "Color Blind" = "themecolorblind",
-                             "Color Blind 2" = "themecolorblind2",
-                             "ggplot default" = "themeggplot",
-                             "viridis"        = "themeviridis",
-                             "User defined" = "themeuser")
-                           ,inline=TRUE),
-                         h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
-                 Try to use Tableau 20 or ggplot default. Color Blind and Color Blind 2 Themes support up to 8 colors.
-                 Contact me if you want to add your own set of colors."),
-                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-                                          sliderInput("nusercol", "N of User Colors:", min=2, max=20, value=c(10),step=1)
-                         ),
-                         uiOutput('userdefinedcolor'),
-                         conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-                                          actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
-                                          actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
-                                          
-                         )
-                         ),
-                tabPanel("Discrete Shape Scale",
-                         radioButtons("scaleshapeswitcher", "Discrete Shape Scale:",
-                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
-                         conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
-                                          sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
-                         ),
-                         uiOutput('userdefinedshape')
-                ),
-                tabPanel("Discrete Linetype Scale",
-                         radioButtons("scalelinetypeswitcher", "Discrete Linetype Scale:",
-                                      c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
-                         conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
-                                          sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
-                         ),
-                         uiOutput('userdefinedlinetype')
-                ),
-                tabPanel("Continuous Color and Fill Scale",
-                         radioButtons("themecontcolorswitcher", "Continuous Color and Fill Themes:",
-                                      c("Red White Blue"  = "RedWhiteBlue",
-                                        "Red White Green"  = "RedWhiteGreen",
-                                        "ggplot default" = "themeggplot",
-                                        "viridis" = "themeviridis",
-                                        "User defined" = "themeuser")
-                                      ,inline=TRUE),
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
-                                             input.themecontcolorswitcher=='RedWhiteGreen'" ,
-                                          colourpicker::colourInput(
-                                            "midcolor",
-                                            "Midpoint Color",
-                                            value ="white",
-                                            showColour = "both",
-                                            allowTransparent = FALSE,returnName = TRUE)
-                         ),
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
-                                             input.themecontcolorswitcher=='RedWhiteGreen'|
-                                             input.themecontcolorswitcher=='themeuser'" ,
-                                          numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
-                                                       value = 0)
-                         ),
-                         # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                         #                  gradientInputUI("gradientcol", "100%", "www"),
-                         #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
-                         #                  ),
-                         
-                         
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                                          uiOutput('userdefinedcontcolor'),
-                                          actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
-                                          
-                         )    
-                         
-                )
-              )
+                                            value = 1,min=0.1,max=10,step=0.01)) 
+
               ) #tabpanel
             )#tabsetpanel
       ), # tabpanel
       #) ,#tabsetPanel(),
       
-      tabPanel(
-        "How To",
+      tabPanel("How To",value = "sidebar_How_To", 
         includeMarkdown(file.path("text", "howto.md"))
       )# tabpanel 
       )
@@ -857,10 +859,16 @@ fluidPage(
           tabPanel(
             "Types of Graphs",
             tabsetPanel(
-              id = "graphicaltypes",selected = "Color/Group/Split/Size/Fill Mappings",
+              id = "graphicaltypes",selected = "color_aes_mappings",
+              tabPanel("Pairs Plot Options",
+                       value = "pairs_plot",
+                       fluidRow(
+                         column (3, uiOutput("colourpairs"))
+                       )
+              ),
               tabPanel(
                 "Points, Lines",
-                
+                value = "points_lines",
                 fluidRow(
                   column (
                     3,
@@ -912,7 +920,8 @@ fluidPage(
                       conditionalPanel(
                         " input.pointignorecol ",
                         colourpicker::colourInput("colpoint", "Points Color", value="black",
-                                                  showColour = "both",allowTransparent=FALSE,returnName=TRUE),
+                                                  showColour = "both",allowTransparent=FALSE,
+                                                  returnName=TRUE),
                         div( actionButton("colpointreset", "Reset Points Color"),
                              style="text-align: right")
                         
@@ -990,6 +999,7 @@ fluidPage(
               ), # tabpanel
               tabPanel(
                 "Color/Group/Split/Size/Fill Mappings",
+                value = "color_aes_mappings",
                 fluidRow(
                   column (3, uiOutput("colour"),uiOutput("group"),uiOutput("facet_col_extra")),
                   column (3, uiOutput("facet_col"),uiOutput("facet_row"),uiOutput("facet_row_extra")),
@@ -1001,6 +1011,7 @@ fluidPage(
               ),#tabpanel
               tabPanel(
                 "Boxplots",
+                value = "box_plots",
                 fluidRow(
                   column (
                     4,
@@ -1021,10 +1032,11 @@ fluidPage(
                     checkboxInput('boxplotignorecol', 'Ignore Mapped Color'),
                     conditionalPanel(
                       " input.boxplotignorecol " ,
-                      selectInput('boxcolline', label ='Box Outlines Color',
-                                  choices=colors(),multiple=FALSE, selectize=TRUE,selected="black")
+                      colourpicker::colourInput('boxcolline','Box Outlines Color',value="black",
+                                                showColour = "both",allowTransparent=TRUE,
+                                                returnName=TRUE)
                     ),
-                    sliderInput("boxplotalpha", "Boxplot Transparency:", min=0, max=1, value=c(0.2),step=0.01),
+                    sliderInput("boxplotalpha", "Boxplot Fill Transparency:", min=0, max=1, value=c(0.2),step=0.01),
                     sliderInput("boxplotoutlieralpha", "Outlier Transparency:", min=0, max=1, value=c(0.5),step=0.01),
                     sliderInput("boxplotoutliersize", "Outliers Size:", min=0, max=6, value=c(1),step=0.1)
                   )
@@ -1036,83 +1048,67 @@ fluidPage(
                 "Histograms/Density/Bar",
                 value = "histograms_density",
                 fluidRow(
-                  
-                  column (
-                    3,
+                  column (3,
                     radioButtons("histogramaddition", "Add a Histogram ?",
                                  c("Density" = "Density",
                                    "Counts" = "Counts",
                                    "Scaled Counts" = "ncounts",
                                    "None" = "None") ,
-                                 selected="None") ,
+                                 selected="None", inline = TRUE) ,
+                    conditionalPanel("input.histogramaddition!='None' ",
                     radioButtons("histogrambinwidth", "Binwidth ?",
                                  c("User Specified" = "userbinwidth",
                                    "Automatic Binwidth" = "autobinwidth",
                                    "None" = "None") ,
-                                 selected="None") ,
+                                 selected="None", inline = TRUE) ,
                     conditionalPanel(
                       " input.histogrambinwidth== 'userbinwidth' ", 
                       numericInput("histobinwidth",
                                    "Bin Width",
-                                   value = 1,
-                                   min = 0, step = 0.5)
+                                   value = 1,min = 0, step = 0.5)
                       
                     ),
                     conditionalPanel(" input.histogrambinwidth== 'None' ",
                                      numericInput("histonbins",
-                                                  "N Bins",
-                                                  value = 30,
-                                                  min = 0, step = 0.5)
+                                                  "N Bins", value = 30,min = 0, step = 0.5)
                     ),
                     sliderInput(
-                      "histogramalpha",
-                      "Histogram Transparency:",
-                      min = 0,
-                      max = 1,
-                      value = c(0.2),
-                      step = 0.01
+                      "histogramalpha","Histogram Fill Transparency:",
+                      min = 0, max = 1, value = c(0.2), step = 0.01
                     ),
                     selectInput("positionhistogram", label = "Histogram positioning for overlap:",
-                                choices = c(
-                                  "Default"="identity",
+                                choices = c("Default"="identity",
                                   "Side By Side"="dodge",
-                                  "Stacked"="stack"
-                                ),selected = "stack")
+                                  "Stacked"="stack"),selected = "stack")
                     
-                    
+                    )  
                   ),
-                  column (
-                    3,
+                  column (3,
                     radioButtons("densityaddition", "Add a Density Curve ?",
                                  c("Density" = "Density",
                                    "Counts" = "Counts",
                                    "Match Histo Count"="histocount",
                                    "Scaled Density" = "Scaled Density",
                                    "None" = "None") ,
-                                 selected="Density"),
+                                 selected="Density", inline = TRUE),
+                    conditionalPanel("input.densityaddition!='None' ",
                     sliderInput(
                       "densityalpha",
-                      "Density Transparency:",
-                      min = 0,
-                      max = 1,
-                      value = c(0.2),
-                      step = 0.01
+                      "Density Fill Transparency:",
+                      min = 0 ,max = 1, value = c(0.2), step = 0.01
                     ),
                     sliderInput(
                       "densityadjust",
                       "Density Binwidth Adjustment:",
-                      min = 0.01,
-                      max = 10,
-                      value = c(1),
-                      step = 0.01
+                      min = 0.01, max = 10, value = c(1), step = 0.01
                     )
-                    
+                    )
                     
                   ),
                   
-                  column (
-                    3,
+                  column (3,
                     checkboxInput('barplotaddition', 'Add a Barplot ?',value = TRUE),
+                    conditionalPanel("input.barplotaddition",
                     selectInput("positionbar", label = "Bar positioning:",
                                 choices = c("Stacked"="position_stack(vjust = 0.5)",
                                             "Side By Side"="position_dodge(width = 0.9)",
@@ -1120,29 +1116,35 @@ fluidPage(
                                 selected = "position_stack(vjust = 0.5)"),
                     checkboxInput('barplotpercent', 'Compute Percentages instead of Counts ?',
                                   value = FALSE),
-                      checkboxInput('barplotlabel', 'Show Labels ?',value = FALSE)
+                    checkboxInput('barplotlabel', 'Show Counts/Percentages ?',value = FALSE),
+                    conditionalPanel("input.barplotlabel",
+                                     checkboxInput('barplotlabellegend', "Show Legend ?", value=TRUE)
+                                     )
+                    )
                   ),
                   column (3,
+                          conditionalPanel("input.barplotaddition",
                           radioButtons("barplotorder", "Bar Ordering:",
                                        c("Default" = "default",
                                          "By Frequency" = "frequency",
                                          "By Reverse Frequency" = "revfrequency"),inline=TRUE ) ,
                           checkboxInput('barplotflip', 'Flip the Barplot ?',value = FALSE)
+                          )
                   ),
-                  
                   column (6,
                   h6("A barplot for non-numeric x or y variable(s), or a density/histogram for numeric x or y variabl(s)
-                                 will be produced,only when the x or y variable(s) are empty.
+                                 will be produced, only when the x or y variable(s) are empty.
                                  Options are to be added as per users requests.")
                   ),
                   column (6,
-                  h6("Currently it is not possible to label the barplot when position Sum to 100% is used.")
+                  h6("Currently there is some limitations when position 'Sum to 100%' is used.")
                   )
                   )#fluidrow
               ),
               
               #rqss quantile regression
               tabPanel("Quantile Regression",
+                       value = "quantile_regression",
                        fluidRow(
                          column(
                            3,
@@ -1224,6 +1226,7 @@ fluidPage(
               
               tabPanel(
                 "Smooth/Linear/Logistic Regressions",
+                value = "smooth_regression",
                 fluidRow(
                   column (2, 
                     radioButtons("Smooth", "Smooth:",
@@ -1329,6 +1332,7 @@ fluidPage(
               ,
               ### Mean CI section
               tabPanel("Mean (CI)",
+                       value = "mean_ci",
                        fluidRow(
                          column (2,
                                  radioButtons(
@@ -1351,6 +1355,17 @@ fluidPage(
                                                  "Side By Side"="position_dodge"
                                                ),selected = "position_identity")
                                    
+                                 ),
+                                 conditionalPanel(
+                                   " input.Mean== 'Mean/CI' && (
+                      input.geommeanCI == 'errorbar' | input.positionmean =='position_dodge')  ",
+                                   numericInput(
+                                     inputId = "errbar",
+                                     label = "CI errorbar/dodge width:",
+                                     value = 0.75,
+                                     min = 0.1,
+                                     max = NA
+                                   )
                                  )
                                  
                          ),#first column
@@ -1362,27 +1377,15 @@ fluidPage(
                                                   "ribbon"= "ribbon"),
                                                 selected = "errorbar",
                                                 inline = TRUE),
-                                   sliderInput(
-                                     "CI",
-                                     "CI %:",
-                                     min = 0,
-                                     max = 1,
-                                     value = c(0.95),
-                                     step = 0.01
-                                   ),
+                                   sliderInput("CI","CI %:",
+                                     min = 0, max = 1, value = c(0.95), step = 0.01),
                                    sliderInput("meancitransparency", "CI Transparency:",
-                                               min=0, max=1, value=c(0.2),step=0.01)
-                                ),
-                                conditionalPanel(
-                                  " input.Mean== 'Mean/CI' | input.positionmean =='position_dodge'  ",
-                                     numericInput(
-                                       inputId = "errbar",
-                                       label = "CI bar/dodge width:",
-                                       value = 0.75,
-                                       min = 0.1,
-                                       max = NA
-                                     )
-                                 )       
+                                               min=0, max=1, value=c(0.2),step=0.01),
+                                   conditionalPanel(" input.geommeanCI == 'errorbar' ",
+                                    sliderInput("meancierrorbarsize","Errorbar(s) Line(s) Size:",
+                                                min=0, max=4, value=c(1),step=0.1)
+                                   )
+                                )       
                                  
                          ),# ci column options
                          column (2,
@@ -1525,6 +1528,7 @@ fluidPage(
               
               ### median PI section
               tabPanel("Median (PIs)",
+                       value = "median_pi",
                fluidRow(
                   column (2,
                     radioButtons("Median", "Median:",
@@ -1538,7 +1542,18 @@ fluidPage(
                                 choices = c(
                                   "Default"="position_identity",
                                   "Side By Side"="position_dodge"
-                                ),selected = "position_identity")
+                                ),selected = "position_identity"),
+                    conditionalPanel(
+                      " input.Median== 'Median/PI' && (
+                      input.geommedianPI == 'errorbar' | input.positionmedian =='position_dodge')  ",
+                      numericInput(
+                        inputId = "medianerrbar",
+                        label = "PI errorbar/dodge width:",
+                        value = 0.75,
+                        min = 0.1,
+                        max = NA
+                      )
+                    )
                     
                     )
                   ),#first column
@@ -1551,19 +1566,12 @@ fluidPage(
                                                  inline = TRUE),
                                     sliderInput("PI", "PI %:", min=0, max=1, value=c(0.95),step=0.01),
                                     sliderInput("PItransparency", "PI Transparency:",
-                                                min=0, max=1, value=c(0.2),step=0.01)
+                                                min=0, max=1, value=c(0.2),step=0.01),
+                                    conditionalPanel(" input.geommedianPI == 'errorbar' ",
+                                    sliderInput("PIerrorbarsize","Errorbar(s) Line(s) Size:",
+                                                min=0, max=4, value=c(1),step=0.1)
+                                    )
                                     
-                  ),
-                  
-                  conditionalPanel(
-                    " input.Median== 'Median/PI' | input.positionmedian =='position_dodge'  ",
-                    numericInput(
-                      inputId = "medianerrbar",
-                      label = "PI bar/dodge width:",
-                      value = 0.75,
-                      min = 0.1,
-                      max = NA
-                    )
                   ) 
                   
                 ), # Pi color options
@@ -1573,18 +1581,21 @@ fluidPage(
                                       checkboxInput('medianlines', 'Show lines',value=TRUE)
                                       ),
                     conditionalPanel(
-                      " input.Median!= 'None'&& input.medianlines ",
+                      " input.Median!= 'None' && input.medianlines && (input.pointsizein == 'None' ) ",
                                       sliderInput("medianlinesize", "Median(s) Line(s) Size:",
-                                                  min=0, max=4, value=c(1.5),step=0.1),
-                                      sliderInput("alphamedianl", "Median(s) Line(s) Transparency:",
-                                                  min=0, max=1, value=c(0.5),step=0.01)
-                      )
+                                                  min=0, max=4, value=c(1.5),step=0.1)
+                      ),
+                    conditionalPanel(
+                      " input.Median!= 'None'&& input.medianlines",
+                      sliderInput("alphamedianl", "Median(s) Line(s) Transparency:",
+                                  min=0, max=1, value=c(0.5),step=0.01)
+                    )
                   ), # lines options
                   column (2,
                     conditionalPanel( " input.Median!= 'None' ",
                                       checkboxInput('medianpoints', 'Show points')
                     ),
-                    conditionalPanel( " input.Median!= 'None'&input.medianpoints ",
+                    conditionalPanel( " input.Median!= 'None' & input.medianpoints ",
                                       sliderInput("medianpointsize", "Median(s) Point(s) Size:", min=0, max=6, value=c(1),step=0.1),
                                       sliderInput("alphamedianp", "Median(s) Point(s) Transparency:", min=0, max=1, value=c(0.5),step=0.01),
                                       checkboxInput('forcemedianshape', 'Force Median(s) Shape',value = FALSE)
@@ -1626,8 +1637,7 @@ fluidPage(
                   ), # points options
 
                 column(2,
-                       conditionalPanel(
-                         " input.Median!= 'None' ",
+                       conditionalPanel(" input.Median!= 'None' ",
                        checkboxInput('medianvalues', 'Label Values?') ,
                        checkboxInput('medianN', 'Label N?') ),
                        conditionalPanel(
@@ -1643,33 +1653,29 @@ fluidPage(
                        
                 ), # fourth column
                 
-                  column (2,
-                    conditionalPanel( " input.Median!= 'None' ",
-                                      checkboxInput('medianignorecol', 'Ignore Mapped Color'),
-                                      conditionalPanel(" input.medianignorecol ",
-                                                       conditionalPanel( " input.Median!= 'None' ",
-                                                                         colourpicker::colourInput("colmedianl",
-                                                                                                   "Median(s) Line(s) Color",
-                                                                                                   value="black",
-                                                                                                   showColour = "both",
-                                                                                                   allowTransparent=FALSE,returnName=TRUE)
-                                                                         
-                                                                         
+                column (2,
+                       conditionalPanel(" input.Median!= 'None' ",
+                       checkboxInput('medianignorecol', 'Ignore Mapped Color'),
+                       conditionalPanel(" input.medianignorecol ",
+                       conditionalPanel( " input.Median!= 'None' ",
+                                        colourpicker::colourInput("colmedianl",
+                                                                  "Median(s) Line(s) Color",
+                                                                  value="black",
+                                                                  showColour = "both",
+                                                                  allowTransparent=FALSE,
+                                                                  returnName=TRUE)              
                                                        ),
-                                                       conditionalPanel( " input.medianpoints ",
-                                                                         colourpicker::colourInput("colmedianp",
-                                                                                                   "Median(s) Point(s) Color",
-                                                                                                   value="black",
-                                                                                                   showColour = "both",
-                                                                                                   allowTransparent=FALSE,returnName=TRUE)
-                                                                         
-                                                                         
+                       conditionalPanel( " input.medianpoints ",
+                                         colourpicker::colourInput("colmedianp",
+                                                                   "Median(s) Point(s) Color",
+                                                                   value="black",
+                                                                   showColour = "both",
+                                                                   allowTransparent=FALSE,
+                                                                   returnName=TRUE)
                                                        )
                                       )
-                                      
-                                      
-                    )
-                  )# column
+                    )#main condition
+                  )# column #5
                   
                 )#fluidrow
               ),
@@ -1679,6 +1685,7 @@ fluidPage(
               
               
               tabPanel("Kaplan-Meier (CI)",
+                       value = "kaplan_meier",
                        fluidRow(
                          column (2,
                                  radioButtons("KM", "KM:",
@@ -1784,6 +1791,7 @@ fluidPage(
               ### KM section
               tabPanel(
                 "Correlation Coefficient",
+                value = "corr_coeff",
                 fluidRow(
                   column(3,
                          checkboxInput('addcorrcoeff',
@@ -1850,8 +1858,8 @@ fluidPage(
                 )#fluidrow
               ),##tabpanel corr
               
-              tabPanel(
-                "Text Labels",
+              tabPanel("Text Labels",
+                       value ="text_labels",
                 fluidRow(
                   column (3,
                     checkboxInput('addcustomlabel',
@@ -1923,6 +1931,7 @@ fluidPage(
                 )
               ),
               tabPanel("Rug Marks",
+                       value ="rug_marks",
                        fluidRow(
                          column(3,
                                  checkboxInput('addrugmarks', 'Add X/Y rug marks?',
@@ -2065,7 +2074,10 @@ fluidPage(
                           uiOutput("flipthelevels")
                    ),
                    column(3,
-                          div(id="quick_reorder_placeholder")
+                          div(id="quick_reorder_placeholder"),
+                          textInput('tablecaption', 'Table title', value = "") ,
+                          textInput('tablefootnote', 'Table caption', value = "") ,
+                          
                    ),
                    column(6,
                           checkboxInput("table_incl_overall",
@@ -2082,12 +2094,18 @@ fluidPage(
                                          selected=c("Mean (SD)", "Median [Min, Max]"),
                                          multiple=TRUE,
                                          options=list(plugins=list('drag_drop','remove_button'))),
+                          checkboxInput("table_suppress_missing",
+                                        label="Suppress Missing Stats?",
+                                        value=FALSE),
                           numericInput("dstats_sigfig",
                                        label="Number of significant figures (for Mean, SD, ...)",
                                        value=3, min=1, max=10, step=1),
                           checkboxInput("round_median_min_max",
                                         label="Also round median, min, max?",
-                                        value=TRUE)
+                                        value=TRUE),
+                          checkboxInput("table_na_is_category",
+                                        label="Missing as a Category?",
+                                        value=FALSE)
                    )
                  )
                ))

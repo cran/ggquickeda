@@ -363,9 +363,10 @@ function(input, output, session) {
   observeEvent(input$hlinecol2reset, {
     shinyjs::reset("hlinecol2")
   })
+
   output$ycol <- renderUI({
     df <- values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
     selectizeInput("y", "y variable(s):",choices=items,selected = items[1],multiple=TRUE,
@@ -375,7 +376,7 @@ function(input, output, session) {
   
   output$xcol <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
     selectizeInput("x", "x variable(s):",choices=items,selected=items[2],multiple=TRUE,
@@ -386,20 +387,151 @@ function(input, output, session) {
   
   output$xcolrug <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items = names(df)
-    items = c("None",items, "yvars","yvalues","xvars","xvalues") 
-    names(items) = items
+    validate(need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
     selectizeInput("xrug", "rug variable(s):",choices = items,
                    multiple=TRUE,
                    options = list(plugins = list('remove_button', 'drag_drop')))  })
   
-  # If an X is selected but no Y is selected, switch to the Histograms tab
+  # If an X or Y are null, switch to the Histograms tab
   observe({
-    if (!is.null(input$x) && is.null(input$y)) {
+    if ((!input$show_pairs && !is.null(input$x) &&  is.null(input$y)) ||
+        (!input$show_pairs &&  is.null(input$x) && !is.null(input$y)) ){
+      showTab("graphicaltypes", target = "color_aes_mappings")
+      hideTab("graphicaltypes", target = "points_lines")
+      hideTab("graphicaltypes", target = "box_plots")
+      showTab("graphicaltypes", target = "histograms_density")
+      hideTab("graphicaltypes", target = "quantile_regression")
+      hideTab("graphicaltypes", target = "smooth_regression")
+      hideTab("graphicaltypes", target = "mean_ci")
+      hideTab("graphicaltypes", target = "median_pi")
+      hideTab("graphicaltypes", target = "kaplan_meier")
+      hideTab("graphicaltypes", target = "corr_coeff")
+      hideTab("graphicaltypes", target = "text_labels")
+      showTab("graphicaltypes", target = "rug_marks")
+      hideTab("graphicaltypes", target = "pairs_plot")
       updateTabsetPanel(session, "graphicaltypes", "histograms_density")
+    }  else if (input$show_pairs) {
+      hideTab("graphicaltypes", target = "color_aes_mappings")
+      hideTab("graphicaltypes", target = "points_lines")
+      hideTab("graphicaltypes", target = "box_plots")
+      hideTab("graphicaltypes", target = "histograms_density")
+      hideTab("graphicaltypes", target = "quantile_regression")
+      hideTab("graphicaltypes", target = "smooth_regression")
+      hideTab("graphicaltypes", target = "mean_ci")
+      hideTab("graphicaltypes", target = "median_pi")
+      hideTab("graphicaltypes", target = "kaplan_meier")
+      hideTab("graphicaltypes", target = "corr_coeff")
+      hideTab("graphicaltypes", target = "text_labels")
+      hideTab("graphicaltypes", target = "rug_marks")
+      showTab("graphicaltypes", target = "pairs_plot")
+      hideTab("graphicaloptions", target = "custom_legends")
+      hideTab("graphicaloptions", target = "facet_options")
+      hideTab("graphicaloptions", target = "ref_line_target_options")
+      updateTabsetPanel(session, "graphicaltypes", "pairs_plot")
+      hideTab("filtercategorize", target = "reorder_facet_axis")
+    } else {
+      hideTab("graphicaltypes", target = "pairs_plot")
+      showTab("graphicaltypes", target = "color_aes_mappings")
+      showTab("graphicaltypes", target = "points_lines")
+      showTab("graphicaltypes", target = "box_plots")
+      showTab("graphicaltypes", target = "histograms_density")
+      showTab("graphicaltypes", target = "quantile_regression")
+      showTab("graphicaltypes", target = "smooth_regression")
+      showTab("graphicaltypes", target = "mean_ci")
+      showTab("graphicaltypes", target = "median_pi")
+      showTab("graphicaltypes", target = "kaplan_meier")
+      showTab("graphicaltypes", target = "corr_coeff")
+      showTab("graphicaltypes", target = "text_labels")
+      showTab("graphicaltypes", target = "rug_marks")
+      showTab("graphicaloptions", target = "custom_legends")
+      showTab("graphicaloptions", target = "facet_options")
+      showTab("graphicaloptions", target = "ref_line_target_options")
+      showTab("filtercategorize", target = "reorder_facet_axis")
+      
     }
   })
+
+  observe({
+  if ( (input$colorin!="None" &&
+       input$colorin %in% names(finalplotdata()) &&
+       !is.numeric(finalplotdata()[,input$colorin]) && 
+       length(unique(finalplotdata()[,input$colorin])) > 20) ||
+       (input$fillin!="None" &&
+        input$fillin %in% names(finalplotdata()) &&
+        !is.numeric(finalplotdata()[,input$fillin]) && 
+        length(unique(finalplotdata()[,input$fillin])) > 20)
+       ) {
+    updateRadioButtons(session, "themecolorswitcher", selected="themeggplot")
+     updateTabsetPanel(session, "sidebar_upper_menus", selected="sidebar_Graph_Options")
+     updateTabsetPanel(session, "graphicaloptions", selected="themes_color_other")
+  } else if ((input$colorin!="None" &&
+             input$colorin %in% names(finalplotdata()) &&
+             !is.numeric(finalplotdata()[,input$colorin]) &&
+             (length(unique(finalplotdata()[,input$colorin])) > 10 &&
+             length(unique(finalplotdata()[,input$colorin])) <= 20) ) ||
+             (input$fillin!="None" &&
+              input$fillin %in% names(finalplotdata()) &&
+              !is.numeric(finalplotdata()[,input$fillin]) &&
+              (length(unique(finalplotdata()[,input$fillin])) > 10 &&
+               length(unique(finalplotdata()[,input$fillin])) <= 20) )
+             ) {
+    updateRadioButtons(session, "themecolorswitcher", selected="themetableau20")
+    updateTabsetPanel(session, "sidebar_upper_menus", selected="sidebar_Graph_Options")
+    updateTabsetPanel(session, "graphicaloptions", selected="themes_color_other")
+  } else if ( (input$colorin!="None" &&
+             input$colorin %in% names(finalplotdata()) &&
+             !is.numeric(finalplotdata()[,input$colorin]) &&
+             length(unique(finalplotdata()[,input$colorin])) <= 10) ||
+             (input$fillin!="None" &&
+              input$fillin %in% names(finalplotdata()) &&
+              !is.numeric(finalplotdata()[,input$fillin]) &&
+              length(unique(finalplotdata()[,input$fillin])) <= 10)
+             ) {
+    updateRadioButtons(session, "themecolorswitcher", selected="themetableau10")
+  } else {
+    updateRadioButtons(session, "themecolorswitcher", selected="themetableau10")
+  }
+  })#zzz still need to fix when fill is mapped
+
+  
+  observe({
+    if( (is.null(input$y) && !is.numeric(finalplotdata()[,"xvalues"] )) ||
+        (is.null(input$x) && !is.numeric(finalplotdata()[,"yvalues"] ))
+         ) {
+      updateRadioButtons(session, "histogramaddition",selected="None")
+      updateRadioButtons(session, "densityaddition"  ,selected="None")
+      shinyjs::disable(id="histogramaddition")
+      shinyjs::disable(id="densityaddition")
+      shinyjs::enable(id="barplotaddition")
+      updateCheckboxInput(session, "barplotaddition", value = TRUE)
+    }
+  })
+  observe({
+    if( (is.null(input$y) &&  is.numeric(finalplotdata()[,"xvalues"] )) ||
+        (is.null(input$x) &&  is.numeric(finalplotdata()[,"yvalues"] ))
+    ) {
+      shinyjs::enable(id="histogramaddition")
+      shinyjs::enable(id="densityaddition")
+      updateRadioButtons(session, "densityaddition" , selected = "Density")
+      updateCheckboxInput(session, "barplotaddition", value = FALSE)
+      shinyjs::disable(id="barplotaddition")
+      
+    }
+  })
+  
   observe({
     if (input$KM!="None") {
       updateRadioButtons(session, "yaxisscale", choices = c(
@@ -418,7 +550,7 @@ function(input, output, session) {
   })
 
   observe({
-    if (input$yaxisscale=="lineary"&& input$KM=="None") {
+    if (input$yaxisscale=="lineary" && input$KM=="None") {
       updateRadioButtons(session, "yaxisformat", choices = c("default" = "default",
                                                              "Comma separated" = "scientificy",
                                                              "Percent" = "percenty"))
@@ -457,7 +589,6 @@ function(input, output, session) {
   })
   
   observe({
-    
     if (length(input$y)>1) {
       updateRadioButtons(session, "yaxiszoom", choices = c("None" = "noyzoom"),inline=TRUE)
     }
@@ -468,37 +599,28 @@ function(input, output, session) {
     }
   })
   
-  # observe({
-  #   if (input$Median== 'Median/PI' ) {
-  #     updateCheckboxInput(session, "medianpoints", value = FALSE)
-  #     shinyjs::disable("medianpoints")
-  #   }
-  # })
-  # observe({
-  #   if (input$Median== 'Median/PI' ) {
-  #     updateCheckboxInput(session, "medianlines", value = TRUE)
-  #     shinyjs::disable("medianlines")
-  #   }
-  # })
-  # observe({
-  #   if (input$Median== 'Median' ) {
-  #     shinyjs::enable("medianlines")
-  #     shinyjs::enable("medianpoints")
-  #   }
-  # })
-  
-  
+  observe({
+    if (length(input$x)>1) {
+      updateRadioButtons(session, "xaxiszoom", choices = c("None" = "noxzoom"),inline=TRUE)
+    }
+    if (length(input$x)<2) {
+      updateRadioButtons(session, "xaxiszoom", choices = c("None" = "noxzoom",
+                                                           "Automatic" = "automaticxzoom",
+                                                           "User" = "userxzoom"),inline=TRUE)
+    }
+  })
+
   outputOptions(output, "ycol", suspendWhenHidden=FALSE)
   outputOptions(output, "xcol", suspendWhenHidden=FALSE)
   
   output$catvar <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
+    validate(need(!is.null(df), "Please select a data set"))
+
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
-    selectInput('catvarin',label = 'Recode into Binned Categories:',choices=NAMESTOKEEP2,multiple=TRUE)
+    selectInput('catvarin',label = 'Recode into Binned Categories:',
+                choices = NAMESTOKEEP2, multiple=TRUE)
   })
   
   # Show/hide the "N of cut breaks" input
@@ -508,19 +630,17 @@ function(input, output, session) {
   
   output$catvarquant <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     if (!is.null(input$catvarin)) {
       if (length(input$catvarin ) >=1) {
-        NAMESTOKEEP2<-NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
+        NAMESTOKEEP2 <- NAMESTOKEEP2 [ !is.element(NAMESTOKEEP2,input$catvarin) ]
       }  
     }
     selectInput('catvarquantin',
                 label = 'Recode into Quantile Categories:',
-                choices=NAMESTOKEEP2,multiple=TRUE)
+                choices = NAMESTOKEEP2, multiple=TRUE)
   })
   
   # Show/hide the "N of cut quantiles" input
@@ -539,9 +659,7 @@ function(input, output, session) {
   
   output$catvar2 <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) !is.factor(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     if (!is.null(input$catvarquantin)) {
@@ -555,16 +673,11 @@ function(input, output, session) {
       }  
     }
     selectInput('catvar2in',label = 'Treat as Categories:',choices=NAMESTOKEEP2,multiple=TRUE)
-    
   })
-  
-
   
   output$catvar3 <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     if (!is.null(input$catvarin) && length(input$catvarin ) >=1) {
@@ -585,7 +698,7 @@ function(input, output, session) {
   })
   output$ncuts2 <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$catvar3in)) return()
     if (!is.null(input$catvar3in) && length(input$catvar3in ) <1)  return(NULL)
     if ( input$catvar3in!=""){
@@ -603,7 +716,7 @@ function(input, output, session) {
   })
   output$asnumeric <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$catvar3in)) return()
     if (!is.null(input$catvar3in) && length(input$catvar3in ) <1)  return(NULL)
     if ( input$catvar3in!=""){
@@ -612,8 +725,7 @@ function(input, output, session) {
       )
     }
   })
-  
-  
+
   outputOptions(output, "catvar", suspendWhenHidden=FALSE)
   outputOptions(output, "catvar2", suspendWhenHidden=FALSE)
   outputOptions(output, "catvar3", suspendWhenHidden=FALSE)
@@ -623,7 +735,7 @@ function(input, output, session) {
   
   recodedata1  <- reactive({
     df <- values$maindata 
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$catvarin)&length(input$catvarin ) >=1) {
       for (i in 1:length(input$catvarin ) ) {
         varname<- input$catvarin[i]
@@ -636,7 +748,7 @@ function(input, output, session) {
   
   recodedataquant  <- reactive({
     df <- recodedata1() 
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     ngroups<- input$ncutsquant
     zeroplacebo<- input$zeroplacebo
     missingcategory <- input$missingcategory
@@ -644,41 +756,39 @@ function(input, output, session) {
       for (i in 1:length(input$catvarquantin ) ) {
         varname<- input$catvarquantin[i]
         x2<- unlist(df[,varname])
-        if(zeroplacebo&&missingcategory){
+        if( zeroplacebo &&  missingcategory){
           df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
                                           varlabel=varname,
                                           withhold=list(
                                             Placebo=(x2==0),
                                             Missing=(is.na(x2))))
         }
-        if(zeroplacebo&&!missingcategory){
+        if( zeroplacebo && !missingcategory){
           df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
                                           varlabel=varname,
                                           withhold=list(
                                             Placebo=(x2==0)))
         }
-        if(!zeroplacebo&&missingcategory){
+        if(!zeroplacebo &&  missingcategory){
           df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
                                           varlabel=varname,
                                           withhold=list(
                                             Missing=(is.na(x2))))
         }
-        if(!zeroplacebo&&!missingcategory){
+        if(!zeroplacebo && !missingcategory){
           withhold<- NULL
           df[,varname]   <- table1::eqcut(x2, ngroups=ngroups,
                                           varlabel=varname,
                                           withhold=NULL)
         }
-        
       }
     }
     df
   })
   
-  
   recodedata2  <- reactive({
     df <- recodedataquant()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$catvar2in) ){
       if(length(input$catvar2in ) >=1) {
         for (i in 1:length(input$catvar2in ) ) {
@@ -692,9 +802,7 @@ function(input, output, session) {
   
   output$contvar <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) !is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     selectInput('contvarin',label = 'Treat as Numeric:',choices=NAMESTOKEEP2,multiple=TRUE)
@@ -703,7 +811,7 @@ function(input, output, session) {
   
   makedatacont  <- reactive({
     df <- recodedata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$contvarin) ){
       if(length(input$contvarin ) >=1) {
         for (i in 1:length(input$contvarin ) ) {
@@ -717,7 +825,7 @@ function(input, output, session) {
 
   recodedata3  <- reactive({
     df <- makedatacont()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$catvar3in)) return(NULL)
     if(input$catvar3in!="" && !is.null(input$xcutoffs)) {
       varname<- input$catvar3in
@@ -739,7 +847,7 @@ function(input, output, session) {
   })
   output$bintext <- renderText({
     df <- recodedata3()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     bintextout <- ""
     if(input$catvar3in!="" && !is.null(input$asnumericin)) {
       varname<- input$catvar3in
@@ -754,7 +862,7 @@ function(input, output, session) {
   
   recodedata4  <- reactive({
     df <- factor_merge_data()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     # get all the "change factor levels" inputs and apply them
     for (i in seq_len(changeLblsVals$numCurrent)) {
       variable_name <- input[[paste0("factor_lvl_change_select_", i)]]
@@ -783,15 +891,14 @@ function(input, output, session) {
   
   output$pastevar <- renderUI({
     df <- recodedata4()
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
-    names(items)=items
-    df <- df[!names(df)%in%"custombins"]
+    validate(need(!is.null(df), "Please select a data set"))
+    df <- df[!names(df) %in% "custombins"]
     MODEDF <- sapply(df, function(x) is.numeric(x))
     yvariables <- input$y
     NAMESTOKEEP2<- names(df)  [! MODEDF ]
     NAMESTOKEEP2<- NAMESTOKEEP2[!NAMESTOKEEP2 %in% yvariables]
-    selectizeInput("pastevarin", "Combine the categories of these two variables:", choices = NAMESTOKEEP2,multiple=TRUE,
+    selectizeInput("pastevarin", "Combine the categories of these two variables:",
+                   choices = NAMESTOKEEP2, multiple=TRUE,
                    options = list(
                      maxItems = 2 ,
                      placeholder = 'Please select two variables',
@@ -803,7 +910,7 @@ function(input, output, session) {
   
   pastedata  <- reactive({
     df <- recodedata4()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     df <- df[!names(df)%in%"custombins"]
     if( !is.null(input$pastevarin)   ) {
       if (length(input$pastevarin) > 1) {
@@ -824,7 +931,7 @@ function(input, output, session) {
   
   output$maxlevels <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     numericInput( inputId = "inmaxlevels",label = "Maximum number of unique values for Filter variable (1),(2),(3) (this is to avoid performance issues):",value = 500,min = 1,max = NA)
     
   })
@@ -833,7 +940,7 @@ function(input, output, session) {
   
   output$filtervar1 <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)  [ NUNIQUEDF  < input$inmaxlevels ]
     selectInput("infiltervar1" , "Filter variable (1):",c('None',NAMESTOKEEP ) )
@@ -841,7 +948,7 @@ function(input, output, session) {
   
   output$filtervar2 <- renderUI({
     df <- pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)  [ NUNIQUEDF  < input$inmaxlevels ]
     selectInput("infiltervar2" , "Filter variable (2):",c('None',NAMESTOKEEP ) )
@@ -849,7 +956,7 @@ function(input, output, session) {
   
   output$filtervar3 <- renderUI({
     df <- pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)  [ NUNIQUEDF  < input$inmaxlevels ]
     selectInput("infiltervar3" , "Filter variable (3):",c('None',NAMESTOKEEP ) )
@@ -858,7 +965,7 @@ function(input, output, session) {
   
   output$filtervarcont1 <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)
     NAMESTOKEEP<- NAMESTOKEEP[ is.element ( NAMESTOKEEP,names(df[sapply(df,is.numeric)]))]
@@ -866,7 +973,7 @@ function(input, output, session) {
   })
   output$filtervarcont2 <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)  
     NAMESTOKEEP<- NAMESTOKEEP[ is.element ( NAMESTOKEEP,names(df[sapply(df,is.numeric)]))]
@@ -874,7 +981,7 @@ function(input, output, session) {
   })
   output$filtervarcont3 <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     NUNIQUEDF <- sapply(df, function(x) length(unique(x)))
     NAMESTOKEEP<- names(df)  
     NAMESTOKEEP<- NAMESTOKEEP[ is.element ( NAMESTOKEEP,names(df[sapply(df,is.numeric)]))]
@@ -882,7 +989,7 @@ function(input, output, session) {
   })
   output$filtervar1values <- renderUI({
     df <-pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(is.null(input$infiltervar1) || input$infiltervar1=="None") {return(NULL)}
     if(!is.null(input$infiltervar1) && input$infiltervar1!="None" )  {
       choices <- levels(as.factor(df[,input$infiltervar1]))
@@ -896,7 +1003,7 @@ function(input, output, session) {
   
   filterdata  <- reactive({
     df <-   pastedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(is.null(input$infiltervar1)) {
       return(df)
     }
@@ -910,7 +1017,7 @@ function(input, output, session) {
   
   output$filtervar2values <- renderUI({
     df <- filterdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$infiltervar2)) return()
     if(input$infiltervar2=="None") {
       selectInput('infiltervar2valuesnull',
@@ -929,7 +1036,7 @@ function(input, output, session) {
   
   filterdata2  <- reactive({
     df <- filterdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$infiltervar2)) {
       return(df)
     }
@@ -940,7 +1047,7 @@ function(input, output, session) {
   }) 
   output$filtervar3values <- renderUI({
     df <- filterdata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$infiltervar3)) return()
     if(input$infiltervar3 == "None") {
       selectInput('infiltervar3valuesnull',
@@ -962,7 +1069,7 @@ function(input, output, session) {
   
   filterdata3  <- reactive({
     df <- filterdata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$infiltervar3)) {
       return(df)
     }
@@ -974,7 +1081,7 @@ function(input, output, session) {
   
   output$fslider1 <- renderUI({ 
     df <-  filterdata3()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     xvariable<- input$infiltervarcont1
     if(is.null(xvariable) || input$infiltervarcont1=="None" ){
       return(NULL)  
@@ -990,12 +1097,13 @@ function(input, output, session) {
   })
   filterdata4  <- reactive({
     df <- filterdata3()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$infiltervarcont1)) return()
     if(input$infiltervarcont1!="None" ){
-      if(is.numeric( input$infSlider1[1]) & is.numeric(df[,input$infiltervarcont1])) {
+      if(is.numeric( input$infSlider1[1]) && is.numeric(df[,input$infiltervarcont1])) {
         df <- df [!is.na(df[,input$infiltervarcont1]),]
-        df <-  df [df[,input$infiltervarcont1] >= input$infSlider1[1]&df[,input$infiltervarcont1] <= input$infSlider1[2],]
+        df <- df [df[,input$infiltervarcont1] >= input$infSlider1[1] &
+                     df[,input$infiltervarcont1] <= input$infSlider1[2],]
       }
     }
     
@@ -1003,14 +1111,14 @@ function(input, output, session) {
   })
   output$fslider2 <- renderUI({ 
     df <-  filterdata4()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     xvariable<- input$infiltervarcont2
     if(input$infiltervarcont2=="None" ){
       return(NULL)  
     }
     if (!is.numeric(df[,xvariable]) ) return(NULL)
     if(input$infiltervarcont2!="None" ){
-      sliderInput("infSlider2", paste("Select",xvariable,"Range"),
+      sliderInput("infSlider2", paste("Select", xvariable,"Range"),
                   min=min(df[,xvariable],na.rm=T),
                   max=max(df[,xvariable],na.rm=T),
                   value=c(min(df[,xvariable],na.rm=T),max(df[,xvariable],na.rm=T)) 
@@ -1018,33 +1126,34 @@ function(input, output, session) {
     }             
   })
   
-  
   filterdata5  <- reactive({
     df <- filterdata4()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(input$infiltervarcont2!="None" ){
-      if(is.numeric( input$infSlider2[1]) & is.numeric(df[,input$infiltervarcont2])) {
-        df<- df [!is.na(df[,input$infiltervarcont2]),]
-        df<-df [df[,input$infiltervarcont2] >= input$infSlider2[1]&df[,input$infiltervarcont2] <= input$infSlider2[2],]
+      if(is.numeric( input$infSlider2[1]) &&
+         is.numeric(df[,input$infiltervarcont2])) {
+        df <- df [!is.na(df[,input$infiltervarcont2]),]
+        df <- df [df[,input$infiltervarcont2] >= input$infSlider2[1] &
+                  df[,input$infiltervarcont2] <= input$infSlider2[2],]
       }
     }
-    
     df
   })
   
   output$fslider3 <- renderUI({ 
     df <-  filterdata5()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     xvariable<- input$infiltervarcont3
     if(input$infiltervarcont3=="None" ){
       return(NULL)  
     }
     if (!is.numeric(df[,xvariable]) ) return(NULL)
     if(input$infiltervarcont3!="None" ){
-      sliderInput("infSlider3", paste("Select",xvariable,"Range"),
+      sliderInput("infSlider3", paste("Select", xvariable,"Range"),
                   min=min(df[,xvariable],na.rm=T),
                   max=max(df[,xvariable],na.rm=T),
-                  value=c(min(df[,xvariable],na.rm=T),max(df[,xvariable],na.rm=T)) 
+                  value=c(min(df[,xvariable],na.rm=T),
+                          max(df[,xvariable],na.rm=T)) 
       )
     }             
   })
@@ -1052,14 +1161,15 @@ function(input, output, session) {
   
   filterdata6  <- reactive({
     df <- filterdata5()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(input$infiltervarcont3!="None" ){
-      if(is.numeric( input$infSlider3[1]) & is.numeric(df[,input$infiltervarcont3])) {
-        df<- df [!is.na(df[,input$infiltervarcont3]),]
-        df<-df [df[,input$infiltervarcont3] >= input$infSlider3[1]&df[,input$infiltervarcont3] <= input$infSlider3[2],]
+      if(is.numeric( input$infSlider3[1]) &&
+         is.numeric(df[,input$infiltervarcont3])) {
+        df<- df[!is.na(df[,input$infiltervarcont3]),]
+        df<- df[df[,input$infiltervarcont3] >= input$infSlider3[1] &
+                  df[,input$infiltervarcont3] <= input$infSlider3[2],]
       }
     }
-    
     df
   })
   
@@ -1080,12 +1190,11 @@ function(input, output, session) {
   
   output$onerowidgroup <- renderUI({
     df <- filterdata6()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c(items) 
-    selectizeInput("onerowidgroupin", "Keep First Row by ID(s):", choices = items,multiple=TRUE,
+    selectizeInput("onerowidgroupin", "Keep First Row by ID(s):",
+                   choices = items, multiple=TRUE,
                    options = list(
                      placeholder = 'Please select at least one variable that is not in y variable(s)',
                      onInitialize = I('function() { this.setValue(""); }'),
@@ -1097,7 +1206,7 @@ function(input, output, session) {
   outputOptions(output, "onerowidgroup", suspendWhenHidden=FALSE)
   filterdata7  <- reactive({
     df <- filterdata6()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if( !is.null(input$onerowidgroupin) && length(input$onerowidgroupin) >0 ){
       vars<- c(as.vector(input$onerowidgroupin) )
       df <-   df %>%
@@ -1106,32 +1215,30 @@ function(input, output, session) {
         ungroup()
     }
     if(is.null(input$onerowidgroupin) || length(input$onerowidgroupin) <1 ){
-      df <-   df
+      df <- df
     }
     as.data.frame(df)
   })
   
   output$onerowidlastgroup <- renderUI({
     df <- filterdata7()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c(items) 
-    selectizeInput("onerowidlastgroupin", "Keep Last Row by ID(s):", choices = items,multiple=TRUE,
+    selectizeInput("onerowidlastgroupin", "Keep Last Row by ID(s):",
+                   choices = items, multiple=TRUE,
                    options = list(
                      placeholder = 'Please select at least one variable that is not in y variable(s)',
                      onInitialize = I('function() { this.setValue(""); }'),
                      plugins = list('remove_button')
                    )
     )
-    
   })
   outputOptions(output, "onerowidlastgroup", suspendWhenHidden=FALSE)  
   
   filterdata8  <- reactive({
     df <- filterdata7()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if( !is.null(input$onerowidlastgroupin) && length(input$onerowidlastgroupin) >0 ){
       vars<- c(as.vector(input$onerowidlastgroupin) )
       df <-   df %>%
@@ -1145,13 +1252,10 @@ function(input, output, session) {
     as.data.frame(df)
   })
   
-  
   output$divideynum <- renderUI({
     df <- filterdata8()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
-      items=names(df)
-      names(items)=items
       MODEDF <- sapply(df, function(x) is.numeric(x))
       NAMESTOKEEP2<- names(df)  [MODEDF]
       selectizeInput(  "divideynumin", "Divide the Values by the specified column:", choices = NAMESTOKEEP2,multiple=TRUE,
@@ -1166,7 +1270,7 @@ function(input, output, session) {
   
   dividedata <- reactive({
     df <- filterdata8()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$divideynumin)&&length(input$divideynumin ) >=1 &&
        !is.null(input$divideydenomin)) {
       for (i in 1:length(input$divideynumin ) ) {
@@ -1180,23 +1284,20 @@ function(input, output, session) {
   
   output$divideydenom <- renderUI({
     df <- filterdata8()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
-      items=names(df)
-      names(items)=items
       MODEDF <- sapply(df, function(x) is.numeric(x) )
       NAMESTOKEEP2<- names(df)  [MODEDF]
-      selectInput(  "divideydenomin", "Variable to divide by", choices = NAMESTOKEEP2,multiple=FALSE)
+      selectInput(  "divideydenomin", "Variable to divide by",
+                    choices = NAMESTOKEEP2, multiple=FALSE)
     }
   })
   outputOptions(output, "divideydenom", suspendWhenHidden=FALSE)
   
   output$divideynum2 <- renderUI({
     df <- dividedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
-      items=names(df)
-      names(items)=items
       MODEDF <- sapply(df, function(x) is.numeric(x))
       NAMESTOKEEP2<- names(df)  [MODEDF]
       selectizeInput(  "divideynumin2", "Divide the Values by a constant:", choices = NAMESTOKEEP2,
@@ -1212,7 +1313,7 @@ function(input, output, session) {
   
   dividedata2 <- reactive({
     df <- dividedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$divideynumin2)&&length(input$divideynumin2 ) >=1) {
       for (i in 1:length(input$divideynumin2 ) ) {
         varname<- input$divideynumin2[i]
@@ -1224,10 +1325,8 @@ function(input, output, session) {
   
   output$inversenum <- renderUI({
     df <- dividedata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
-      items=names(df)
-      names(items)=items
       MODEDF <- sapply(df, function(x) is.numeric(x))
       NAMESTOKEEP2<- names(df)  [MODEDF]
       selectizeInput(  "inversenumin", "Inverse the Values by the specified column:",
@@ -1243,7 +1342,7 @@ function(input, output, session) {
 
   inversedata <- reactive({
     df <- dividedata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$inversenumin)&&length(input$inversenumin ) >=1) {
       for (i in 1:length(input$inversenumin ) ) {
         varname<- input$inversenumin[i]
@@ -1257,7 +1356,7 @@ function(input, output, session) {
   
   output$roundvar <- renderUI({
     df <- inversedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (!is.null(df)){
       items=names(df)
       names(items)=items
@@ -1275,7 +1374,7 @@ function(input, output, session) {
   
   rounddata <- reactive({
     df <- inversedata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if(!is.null(input$roundvarin)&&length(input$roundvarin ) >=1) {
       for (i in 1:length(input$roundvarin ) ) {
         varname<- input$roundvarin[i]
@@ -1290,66 +1389,26 @@ function(input, output, session) {
     df
   })
   
-  stackdata <- reactive({
+  stackdatay <- reactive({
     df <- rounddata()
-    validate(       need(!is.null(df), "Please select a data set"))
-    if (!is.null(df)){
-      validate(  need(! (is.null(input$x) & is.null(input$y)),
-"Please select at least one x or at least one y."))
-    }
+    validate(need(!is.null(df), "Please select a data set"))
+
     if (!is.null(df)){
       validate(  need( nrow(df) > 0,
     "The dataset has to have at least one row."))
     }
     
-    if (!is.null(df) & !is.null(input$x)){
+    if (!is.null(df) && !is.null(input$x) && !is.null(input$y)){
       validate(  need(!is.element(input$x,input$y) ,
-  "Please select a different x variable or remove the x variable from the list of y variable(s)"))
+  "Please modify your x or y variable(s) so they become distinct"))
     }
-    if(is.null(input$y) && !is.null(input$x) ){
-        tidydata <- df
-          tidydata <- tidydata %>%
-            gather( "xvars", "xvalues", !!!input$x ,factor_key = TRUE)
-          tidydata$yvars <- "None"
-          tidydata$yvalues <- NA
-          if (!all( sapply(df[,as.vector(input$x)], is.numeric)) ) {
-            tidydata <- tidydata %>%
-              mutate(xvalues=as.factor(as.character(xvalues) ))
-            xlevelsall<- vector(mode = "character", length = 0L)
-            for (i in 1:length(input$x) ) {
-              if( is.factor(df[,input$x[i]])) levelsvar <- levels(df[,input$x[i]])
-              if(!is.factor(df[,input$x[i]])) levelsvar <- levels(as.factor(df[,input$x[i]]))
-              xlevelsall<- c(xlevelsall,levelsvar)
-            }
-            xlevelsall <-  unique(xlevelsall, fromLast = TRUE)
-            tidydata$xvalues   <- factor(tidydata$xvalues,levels=xlevelsall)
-          }
-      }
-      if(!is.null(input$y) && is.null(input$x) ){
-        tidydata <- df %>%
-            gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE)
-          tidydata$xvars <- "None"
-          tidydata$xvalues <- NA
-          if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
-            tidydata <- tidydata %>%
-              mutate(yvalues=as.factor(as.character(yvalues) ))
-            ylevelsall<- vector(mode = "character", length = 0L)
-            for (i in 1:length(input$y) ) {
-              if( is.factor(df[,input$y[i]])) levelsvar <- levels(df[,input$y[i]])
-              if(!is.factor(df[,input$y[i]])) levelsvar <- levels(as.factor(df[,input$y[i]]))
-              ylevelsall<- c(ylevelsall,levelsvar)
-            }
-            ylevelsall <-  unique(ylevelsall, fromLast = TRUE)
-            tidydata$yvalues   <- factor(tidydata$yvalues,levels=ylevelsall)
-          }
-      }
-    
-    if(!is.null(input$y) & !is.null(input$x) ){
+    df$yvars <- "None"
+    df$yvalues <- NA
+
+      if (!is.null(df) && !is.null(input$y)){
       validate(need(all(input$y %in% names(df)), "Invalid y value(s)"))
       tidydata <- df %>%
         gather( "yvars", "yvalues", !!!input$y ,factor_key = TRUE)
-      tidydata <- tidydata %>%
-        gather( "xvars", "xvalues", !!!input$x ,factor_key = TRUE)
       if (!all( sapply(df[,as.vector(input$y)], is.numeric)) ) {
         tidydata <- tidydata %>%
           mutate(yvalues=as.factor(as.character(yvalues) ))
@@ -1362,6 +1421,34 @@ function(input, output, session) {
         ylevelsall <-  unique(ylevelsall, fromLast = TRUE)
         tidydata$yvalues   <- factor(tidydata$yvalues,levels=ylevelsall)
       }
+      tidydata <- tidydata
+      }
+    if (!is.null(df) && is.null(input$y)){
+      tidydata <- df
+    }
+    tidydata    
+  })
+  
+  stackdatax <- reactive({
+    df <- stackdatay()
+    validate(need(!is.null(df), "Please select a data set"))
+    if (!is.null(df)){
+      validate(  need( nrow(df) > 0,
+                       "The dataset has to have at least one row."))
+    }
+    
+    if (!is.null(df) && !is.null(input$x) && !is.null(input$y)){
+      validate(  need(!is.element(input$x,input$y) ,
+                      "Please modify your x or y variable(s) so they become distinct"))
+    }
+    df$xvars <- "None"
+    df$xvalues <- NA
+    
+    if (!is.null(df) && !is.null(input$x)){
+      validate(need(all(input$x %in% names(df)),
+                    "Please modify your x or y variable(s) so they become distinct"))
+        tidydata <- df %>%
+        gather( "xvars", "xvalues", !!!input$x ,factor_key = TRUE)
       if (!all( sapply(df[,as.vector(input$x)], is.numeric)) ) {
         tidydata <- tidydata %>%
           mutate(xvalues=as.factor(as.character(xvalues) ))
@@ -1374,16 +1461,17 @@ function(input, output, session) {
         xlevelsall <-  unique(xlevelsall, fromLast = TRUE)
         tidydata$xvalues   <- factor(tidydata$xvalues,levels=xlevelsall)
       }
+        tidydata <- tidydata
     }
-      tidydata
-    
+    if (!is.null(df) && is.null(input$x)){
+      tidydata <- df
+    }
+    tidydata      
   })
   
-  
-  
   output$reordervar <- renderUI({
-    df <- stackdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    df <- stackdatax()
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
     MODEDF <- sapply(df, function(x) is.numeric(x))
@@ -1399,55 +1487,60 @@ function(input, output, session) {
   
   
   output$variabletoorderby <- renderUI({
-    df <-stackdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    df <- stackdatax()
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$reordervarin)) return()
     if (length(input$reordervarin ) <1)  return(NULL)
     if ( input$reordervarin!=""){
-      #yinputs <- input$y
       items=names(df)
       names(items)=items
-      MODEDF <- sapply(df, function(x) is.numeric(x))
-      NAMESTOKEEP2<- names(df)  [ MODEDF ]
-      selectInput('varreorderin',label = 'Of this Variable:', choices=NAMESTOKEEP2,multiple=FALSE,selected="yvalues")
+      #MODEDF <- sapply(df, function(x) is.numeric(x))
+      NAMESTOKEEP2<- names(df)  #[ MODEDF ]
+      selectInput('varreorderin',label = 'Of this Variable: (categorical variables will be coerced to numeric)',
+                  choices=NAMESTOKEEP2,multiple=FALSE,selected="yvalues")
     }
   })
   
-  
-  
   outputOptions(output, "reordervar", suspendWhenHidden=FALSE)
   outputOptions(output, "variabletoorderby", suspendWhenHidden=FALSE)
-  
-  
-  
+ 
   reorderdata <- reactive({
-    df <- stackdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    df <- stackdatax()
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$reordervarin)) {
       return(df)
     }
     if(length(input$reordervarin ) >=1 &&
-       length(input$varreorderin ) >=1 && input$reordervarin!=""  ) {
-      varname<- input$reordervarin[1]
+       length(input$varreorderin ) >=1 && input$reordervarin!="") {
+      
+      variabletoorderby <- df[,input$varreorderin]
+      if(!is.numeric(variabletoorderby)) variabletoorderby <- as.numeric(variabletoorderby)
+      varname <- input$reordervarin[1]
+      
       if(input$functionordervariable=="Median" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin], FUN=function(x) median(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby, FUN=function(x) median(x[!is.na(x)]))
       }
       if(input$functionordervariable=="Mean" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) mean(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) mean(x[!is.na(x)]))
       }
       if(input$functionordervariable=="Minimum" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) min(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) min(x[!is.na(x)]))
       }
       if(input$functionordervariable=="Maximum" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) max(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) max(x[!is.na(x)]))
       }
       if(input$functionordervariable=="N" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) length(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) length(x[!is.na(x)]))
+      }
+      if(input$functionordervariable=="N Unique" )  {
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) length(unique(x[!is.na(x)])))
       }
       if(input$functionordervariable=="SD" )  {
-        df[,varname]   <- reorder( df[,varname],df[,input$varreorderin],  FUN=function(x) sd(x[!is.na(x)]))
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) sd(x[!is.na(x)]))
       }
-      
+      if(input$functionordervariable=="Sum" )  {
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) sum(x[!is.na(x)]))
+      }
       if(input$reverseorder )  {
         df[,varname] <- factor( df[,varname], levels=rev(levels( df[,varname])))
         
@@ -1457,7 +1550,7 @@ function(input, output, session) {
   })  
   output$reordervar2 <- renderUI({
     df <- reorderdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP<- names(df)  [ !MODEDF ]
     if(!is.null(input$reordervarin)&&length(input$reordervarin ) >=1  ){
@@ -1469,7 +1562,7 @@ function(input, output, session) {
   
   output$reordervar2values <- renderUI({
     df <- reorderdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$reordervar2in)) return()
     if(input$reordervar2in=="None") {
       selectInput('reordervar2valuesnull',
@@ -1477,8 +1570,12 @@ function(input, output, session) {
                   choices = list(""),multiple=TRUE, selectize=FALSE)   
     }
     if(input$reordervar2in!="None"&&!is.null(input$reordervar2in) )  {
-      
-      choices <- levels(as.factor(as.character(df[,input$reordervar2in])))
+       if(is.factor(df[,input$reordervar2in])){
+        choices <- levels(df[,input$reordervar2in])
+      }
+      if(!is.factor(df[,input$reordervar2in])){
+        choices <- levels(as.factor(as.character(df[,input$reordervar2in])))
+      }
       selectizeInput('reordervar2valuesnotnull',
                      label = paste("Drag/Drop to reorder",input$reordervar2in, "values"),
                      choices = c(choices),
@@ -1492,9 +1589,53 @@ function(input, output, session) {
   outputOptions(output, "reordervar2", suspendWhenHidden=FALSE)
   outputOptions(output, "reordervar2values", suspendWhenHidden=FALSE)
   
+  output$reordervar3 <- renderUI({
+    df <- reorderdata2()
+    validate(need(!is.null(df), "Please select a data set"))
+    MODEDF <- sapply(df, function(x) is.numeric(x))
+    NAMESTOKEEP<- names(df)  [ !MODEDF ]
+    if(!is.null(input$reordervarin)&&length(input$reordervarin ) >=1  ){
+      NAMESTOKEEP<- NAMESTOKEEP  [ NAMESTOKEEP!=input$reordervarin ]
+    }
+    if(!is.null(input$reordervar2in)&&length(input$reordervar2in ) >=1  ){
+      NAMESTOKEEP<- NAMESTOKEEP  [ NAMESTOKEEP!=input$reordervar2in ]
+    }
+    selectInput("reordervar3in" , "Custom Reorder this variable(2):",c('None',NAMESTOKEEP ) )
+  })
+  
+  output$reordervar3values <- renderUI({
+    df <- reorderdata2()
+    validate(need(!is.null(df), "Please select a data set"))
+    if (is.null(input$reordervar3in)) return()
+    if(input$reordervar3in=="None") {
+      selectInput('reordervar3valuesnull',
+                  label ='No reorder variable specified',
+                  choices = list(""),multiple=TRUE, selectize=FALSE)
+    }
+    if(input$reordervar3in!="None"&&!is.null(input$reordervar3in) )  {
+     if(is.factor(df[,input$reordervar3in])){
+       choices <- levels(df[,input$reordervar3in])
+     }
+      if(!is.factor(df[,input$reordervar3in])){
+       choices <- levels(as.factor(as.character(df[,input$reordervar3in])))
+      }
+      selectizeInput('reordervar3valuesnotnull',
+                     label = paste("Drag/Drop to reorder",
+                                   input$reordervar3in, "values (2)"),
+                     choices = c(choices),
+                     selected = choices,
+                     multiple=TRUE,  options = list(
+                       plugins = list('drag_drop')
+                     )
+      )
+    }
+  })
+   outputOptions(output, "reordervar3", suspendWhenHidden=FALSE)
+   outputOptions(output, "reordervar3values", suspendWhenHidden=FALSE)
+  # 
   reorderdata2 <- reactive({
     df <- reorderdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$reordervar2in)) {
       return(df)
     }
@@ -1506,28 +1647,47 @@ function(input, output, session) {
     df
   })
   
+  reorderdata3 <- reactive({
+    df <- reorderdata2()
+    validate(need(!is.null(df), "Please select a data set"))
+    if (is.null(input$reordervar3in)) {
+      return(df)
+    }
+    if(input$reordervar3in!="None"  ) {
+      df [,input$reordervar3in] <- factor(df [,input$reordervar3in],
+                                          levels = input$reordervar3valuesnotnull)
+      
+    }
+    df
+  })
   
   
   # Populate the "Change levels of this variable:" list
-  observeEvent(stackdata(), {
-    df <- stackdata()
+  observeEvent(stackdatax(), {
+    df <- stackdatax()
     items <- names(df)
     names(items) <- items
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2 <- names(df)[!MODEDF]
     updateSelectizeInput(session, "change_labels_stat_var", selected = "",
                          choices = NAMESTOKEEP2)
+    updateSelectizeInput(session, "change_labels_stat_var_2", selected = "",
+                         choices = NAMESTOKEEP2)
   })
   
   output$change_labels_stat_old <- renderText({
-    df <- reorderdata2()
+    df <- reorderdata3()
     req(df, input$change_labels_stat_var != "")
     paste(levels(as.factor(df[, input$change_labels_stat_var])), collapse = " ")
   })   
-  
+  output$change_labels_stat_old_2 <- renderText({
+    df <- reorderdata3()
+    req(df, input$change_labels_stat_var_2 != "")
+    paste(levels(as.factor(df[, input$change_labels_stat_var_2])), collapse = " ")
+  })  
   # Show the input of the labels the user wants to change for a stat variable
   observe({
-    df <- reorderdata2()
+    df <- reorderdata3()
     if (is.null(df) || is.null(input$change_labels_stat_var) || length(input$change_labels_stat_var) < 1 || input$change_labels_stat_var == "") {
       return()
     }
@@ -1535,18 +1695,46 @@ function(input, output, session) {
     levelsvalues <- levels(as.factor( df[,input$change_labels_stat_var] ))
     label <- paste(input$change_labels_stat_var, "requires", nlevels, "new labels, type in a comma separated list below")
     value <- paste(as.character(levelsvalues), collapse=", ", sep="")
-    updateTextInput(session, "change_labels_stat_levels", label = label, value = value) 
+    updateTextInput(session, "change_labels_stat_levels", label = label, value = value)
   })
   
+  observe({
+    df <- reorderdata3()
+    if (is.null(df) || is.null(input$change_labels_stat_var_2) || length(input$change_labels_stat_var_2) < 1 || input$change_labels_stat_var_2 == "") {
+      return()
+    }
+    nlevels2 <- length( unique( levels(as.factor( df[,input$change_labels_stat_var_2] ))))
+    levelsvalues2 <- levels(as.factor( df[,input$change_labels_stat_var_2] ))
+    label2 <- paste(input$change_labels_stat_var, "requires", nlevels2, "new labels, type in a comma separated list below")
+    value2 <- paste(as.character(levelsvalues2), collapse=", ", sep="")
+    updateTextInput(session, "change_labels_stat_levels_2", label = label2, value = value2)
+  })
+
   recodedata5  <- reactive({
-    df <- reorderdata2()
-    validate(       need(!is.null(df), "Please select a data set"))
+    df <- reorderdata3()
+    validate(need(!is.null(df), "Please select a data set"))
     if (is.null(input$change_labels_stat_var)) {
       return(df)
     }
     if(input$change_labels_stat_var!="" && input$change_labels_stat_levels != "") {
       varname <- input$change_labels_stat_var
       xlabels <- input$change_labels_stat_levels 
+      xlabels <- gsub("\\\\n", "\\\n", xlabels)
+      df[,varname] <- as.factor(df[,varname])
+      levels(df[,varname])  <-  unlist (strsplit(xlabels, ",") )
+    }
+    df
+  })
+  
+  recodedata6  <- reactive({
+    df <- recodedata5()
+    validate(need(!is.null(df), "Please select a data set"))
+    if (is.null(input$change_labels_stat_var_2)) {
+      return(df)
+    }
+    if(input$change_labels_stat_var_2!="" && input$change_labels_stat_levels_2 != "") {
+      varname <- input$change_labels_stat_var_2
+      xlabels <- input$change_labels_stat_levels_2
       xlabels <- gsub("\\\\n", "\\\n", xlabels)
       df[,varname] <- as.factor(df[,varname])
       levels(df[,varname])  <-  unlist (strsplit(xlabels, ",") )
@@ -1700,48 +1888,51 @@ function(input, output, session) {
   # --- End: Merge Factor Levels feature
   
   finalplotdata <- reactive({
-    df <- recodedata5()
+    df <- recodedata6()
     as.data.frame(df)
   })
   
   output$xaxiszoom <- renderUI({
     df <- finalplotdata()
-    validate(       need(!is.null(df), "Please select a data set"))
-    
-    if (!is.numeric(df[,"xvalues"] ) ) return(NULL)
-    if (all(is.numeric(df[,"xvalues"]) &&
-            input$facetscalesin!="free_x"&&
-            input$facetscalesin!="free")){
+    validate(need(!is.null(df), "Please select a data set"))
+    if (  is.null(input$x)  ) return(NULL)
+    if ( !is.null(input$x)  ){
+      if (is.null(df) || !is.numeric(df[,"xvalues"] ) || (length(input$x) > 1 ) ) return(NULL)
+      if (all(is.numeric(df[,"xvalues"]) &&  (length(input$x) < 2 ) &&
+              input$facetscalesin!="free_x"&&
+              input$facetscalesin!="free")){
       xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
       if (length(xvalues) > 0) {
         xmin <- min(xvalues)
+        if(input$xaxisscale=="logx"&& xmin<=0) xmin <- 0.01
         xmax <- max(xvalues)
         xstep <- (xmax -xmin)/100
         sliderInput('xaxiszoomin',label = 'Zoom to X variable range:', min=xmin, max=xmax, value=c(xmin,xmax),step=xstep)
       }
     }
-    
+    }
     
   })
   outputOptions(output, "xaxiszoom", suspendWhenHidden=FALSE)
   
   output$lowerx <- renderUI({
     df <-finalplotdata()
-    if (is.null(df)| !is.numeric(df[,"xvalues"] ) ) return(NULL)
-    if (all(is.numeric(df[,"xvalues"]) &&
+    if (is.null(df) || !is.numeric(df[,"xvalues"] ) ) return(NULL)
+    if (all(is.numeric(df[,"xvalues"]) && (length(input$x) < 2 ) &&
             input$facetscalesin!="free_x"&&
             input$facetscalesin!="free")){
       xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
       if (length(xvalues) > 0) {
         xmin <- min(xvalues)
+        if(input$xaxisscale=="logx"&& xmin<=0) xmin <- 0.01
         numericInput("lowerxin",label = "Lower X Limit",value = xmin,min=NA,max=NA,width='100%')
       }
     }
   })
   output$upperx <- renderUI({
     df <-finalplotdata()
-    if (is.null(df)| !is.numeric(df[,"xvalues"] ) ) return(NULL)
-    if (all(is.numeric(df[,"xvalues"]) &&
+    if (is.null(df) || !is.numeric(df[,"xvalues"] ) ) return(NULL)
+    if (all(is.numeric(df[,"xvalues"]) && (length(input$x) < 2 ) &&
             input$facetscalesin!="free_x"&&
             input$facetscalesin!="free")){
       xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
@@ -1755,7 +1946,8 @@ function(input, output, session) {
   outputOptions(output, "upperx", suspendWhenHidden=FALSE)
   
   output$yaxiszoom <- renderUI({
-    df <-finalplotdata()
+    df <- finalplotdata()
+    validate(need(!is.null(df), "Please select a data set"))
     if ( is.null(input$y)  ) return(NULL)
     if ( !is.null(input$y)  ){
       if (is.null(df)|| !is.numeric(df[,"yvalues"] ) || (length(input$y) > 1 ) ) return(NULL)
@@ -1764,16 +1956,13 @@ function(input, output, session) {
               input$facetscalesin!="free")){
         yvalues <- df[,"yvalues"][!is.na( df[,"yvalues"])]
         ymin <- min(yvalues)
-        if(input$yaxisscale=="logy"&& ymin==0) ymin <- 0.01
+        if(input$yaxisscale=="logy"&& ymin<=0) ymin <- 0.01
         ymax <- max(yvalues)
         ystep <- (ymax -ymin)/100
         sliderInput('yaxiszoomin',label = 'Zoom to Y variable range:', min=ymin, max=ymax, value=c(ymin,ymax),step=ystep)
         
       }
     }
-    
-    
-    
     
   })
   outputOptions(output, "yaxiszoom", suspendWhenHidden=FALSE)  
@@ -1786,7 +1975,7 @@ function(input, output, session) {
             input$facetscalesin!="free")){
       yvalues <- df[,"yvalues"][!is.na( df[,"yvalues"])]
       ymin <- min(yvalues)
-      if(input$yaxisscale=="logy") ymin <- min(yvalues)+0.01
+	  if(input$yaxisscale=="logy"&& ymin<=0) ymin <- 0.01
       numericInput("loweryin",label = "Lower Y Limit",value = ymin,min=NA,max=NA,width='50%')
     }
   })
@@ -1803,67 +1992,141 @@ function(input, output, session) {
   }) 
   outputOptions(output, "lowery", suspendWhenHidden=FALSE)
   outputOptions(output, "uppery", suspendWhenHidden=FALSE)
-  
-  
+
   output$colour <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items
+    items= c("None",items)
     if ( !is.null(input$y) ){
-      items = c("None",items, "yvars","yvalues","xvars","xvalues") 
+      items = c(items, "yvars","yvalues") 
     }
-    if ( is.null(input$y) ){
-      items = c("None",items) 
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
     }
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("colorin", "Colour By:",items) 
-    
+  })
+  observe({
+    df <-values$maindata
+    validate(need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
+    current_color_value <- input$colorin
+    if (!is.null(current_color_value) && current_color_value %in% items) {
+      new_value <- current_color_value
+    } else {
+      new_value <- items[1]
+    }
+    updateSelectInput(session, "colorin",
+                      choices = items, selected = new_value)
   })
   
+  output$colourpairs <- renderUI({
+    df <- rounddata()
+    validate(need(!is.null(df), "Please select a data set"))
+    MODEDF <- sapply(df, function(x) is.numeric(x))
+    NAMESTOKEEP2<- names(df)  [ !MODEDF ]
+    items=NAMESTOKEEP2
+    names(items)=items
+    items= c("None",items)
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
+    selectInput("colorpairsin", "Colour By:",items) 
+  })
+  observe({
+    df <- rounddata()
+    validate(need(!is.null(df), "Please select a data set"))
+    MODEDF <- sapply(df, function(x) is.numeric(x))
+    NAMESTOKEEP2<- names(df)  [ !MODEDF ]
+    items=NAMESTOKEEP2
+    names(items)=items
+    items= c("None",items)
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
+    current_color_value <- input$colorpairsin
+    if (!is.null(current_color_value) && current_color_value %in% items) {
+      new_value <- current_color_value
+    } else {
+      new_value <- items[1]
+    }
+    updateSelectInput(session, "colorpairsin",
+                      choices = items, selected = new_value)
+  })
   
   output$group <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("groupin", "Group By:",items)
   })
   outputOptions(output, "colour", suspendWhenHidden=FALSE)
+  outputOptions(output, "colourpairs", suspendWhenHidden=FALSE)
   outputOptions(output, "group", suspendWhenHidden=FALSE)
-  
-  
+
   output$facet_col <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items =c(None='.',items,"yvars", "yvalues","xvars", "xvalues")
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    items= c(None='.',items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("facetcolin", "Column Split:",items)
   })
+  
   output$facet_row <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items =c(None='.',items,"yvars", "yvalues","xvars", "xvalues")
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    items= c(None='.',items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
@@ -1872,55 +2135,53 @@ function(input, output, session) {
   
   output$facet_col_extra <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
     
     if (length(input$x) < 2 ){
-      items= c(None=".",items,"yvars", "yvalues","xvars", "xvalues")    
-      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
-        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
-        items= c(items,nameofcombinedvariables)    
+      items= c(None=".",items)    
       }
-    }
     if (length(input$x) > 1  ){
-      items= c("xvars",None=".",items, "yvalues","yvars", "xvalues")    
-      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
-        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="")
-        items= c(items,nameofcombinedvariables)    
-      }
+      items= c("xvars",None=".",items[items!="xvars"])    
     }
     selectInput("facetcolextrain", "Extra Column Split:",items)
   })
   
   output$facet_row_extra <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items
-    
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
     if (length(input$y) < 2 ){
-      items= c(None=".",items,"yvars", "yvalues","xvars", "xvalues")    
-      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
-        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
-        items= c(items,nameofcombinedvariables)    
-      }
+      items= c(None=".",items)    
     }
     if (length(input$y) > 1  ){
-      items= c("yvars",None=".",items, "yvalues","xvars", "xvalues")    
-      if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
-        nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="")
-        items= c(items,nameofcombinedvariables)    
-      }
+      items= c("yvars",None=".",items[items!="yvars"])    
     }
-    
     selectInput("facetrowextrain", "Extra Row Split:",items)
   })
-  
-  
-  
+
   output$facetscales <- renderUI({
     items= c("fixed","free_x","free_y","free")   
     if (is.null(input$x) && !is.null(input$y) && length(input$y) > 1 ){
@@ -1944,59 +2205,73 @@ function(input, output, session) {
   
   output$pointsize <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("pointsizein", "Size By:",items )
-    
   })
-  
-  
+
   output$labeltext <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("labeltextin", "Label By:",items )
-    
   })
-  
-  
-  
+
   output$pointshape <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    } 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("pointshapein", "Shape By:",items )
-    
   })
   
   output$linetype <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items 
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    } 
     if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
@@ -2006,22 +2281,52 @@ function(input, output, session) {
   
   output$fill <- renderUI({
     df <-values$maindata
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     items=names(df)
     names(items)=items
-    items= items
-    items= c("None",items, "yvars","yvalues","xvars","xvalues") 
-    if (!is.null(input$pastevarin)&length(input$pastevarin) >1 ){
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    } 
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
       nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
       items= c(items,nameofcombinedvariables)
     }
     selectInput("fillin", "Fill By:"    ,items )
   })
+
+  observe({
+    df <-values$maindata
+    validate(need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
+    current_fill_value <- input$fillin
+    if (!is.null(current_fill_value) && current_fill_value %in% items) {
+      new_value <- current_fill_value
+    } else {
+      new_value <- items[1]
+    }
+    updateSelectInput(session, "fillin",
+                      choices = items, selected = new_value)
+  })
   
   output$weight <- renderUI({
-    df <- recodedata5()
-    validate(       need(!is.null(df), "Please select a data set"))
-    items=names(df)
+    df <- finalplotdata()
+    validate(need(!is.null(df), "Please select a data set"))
     MODEDF <- sapply(df, function(x) is.numeric(x))
     NAMESTOKEEP2<- names(df)  [ MODEDF ]
     items= c("None",NAMESTOKEEP2, "yvalues") 
@@ -2033,13 +2338,10 @@ function(input, output, session) {
   outputOptions(output, "linetype", suspendWhenHidden=FALSE)
   outputOptions(output, "labeltext", suspendWhenHidden=FALSE)
   outputOptions(output, "pointshape", suspendWhenHidden=FALSE)
-  
-  
-  
+
   output$mytablex = renderDataTable({
     df <- finalplotdata() 
-    validate(       need(!is.null(df), "Please select a data set"))
-    
+    validate(need(!is.null(df), "Please select a data set"))
     datatable(df ,
               extensions = c('ColReorder','Buttons','FixedColumns'),
               options = list(dom = 'Bfrtip',
@@ -2081,7 +2383,6 @@ function(input, output, session) {
         ), style = "display: inline-block;")        
       })
     }
-    
   })
   
   output$userdefinedshape <- renderUI({ 
@@ -2256,6 +2557,8 @@ function(input, output, session) {
       validate(need(!is.null(input$y), "Please select at least one Y variable"))
       plotdata <- rounddata()
     } else {
+      validate(  need(! (is.null(input$x) && is.null(input$y)),
+                      "Please select at least one x or at least one y."))
       plotdata <- finalplotdata() 
     }
     validate(need(!is.null(plotdata), "Please select a data set") )
@@ -2376,9 +2679,9 @@ function(input, output, session) {
     }
     
     # Determine what type of plot to show based on what variables were chosen
-    if (input$show_pairs) {
+    if (input$show_pairs && !is.null(input$colorpairsin)) {
       # Matrix of pairs of plots of all the Y variables
-      if (input$colorin == 'None'){
+      if (input$colorpairsin == 'None'){
         p <- sourceable(GGally::ggpairs(plotdata, columns = input$y,
                                         diag = list(continuous = GGally::wrap("densityDiag", alpha=0.2),
                                                     discrete = GGally::wrap("barDiag",  alpha=0.2,position="dodge2")),
@@ -2387,21 +2690,18 @@ function(input, output, session) {
                                                      discrete = GGally::wrap("facetbar",  alpha=0.2,position="dodge2")
                                         ),
                                         upper = list(continuous = function(data, mapping, ...) {
-                                          GGally::ggally_cor(data = data, mapping = mapping, size=4, alignPercent=0.8)
+                                          GGally::ggally_cor(data = data, mapping = mapping, size=4, align_percent=0.8)
                                             },
                                                      combo = GGally::wrap("box_no_facet", alpha=0.2),
                                                      discrete = GGally::wrap("facetbar",  alpha=0.2,position="dodge2")),
                                         progress = FALSE)
                         )
       }
-      if (input$colorin != 'None'){
-        
-        if( !is.numeric(plotdata[,input$colorin]) ){
-        p <- sourceable(
-          GGally::ggpairs(
+      if (input$colorpairsin != 'None'){
+        p <- GGally::ggpairs(
             plotdata,
             columns = input$y,
-            mapping = ggplot2::aes_string(color = input$colorin),
+            mapping = ggplot2::aes_string(color = input$colorpairsin),
             diag = list(
               continuous = function(data, mapping, ...) {
                 GGally::ggally_densityDiag(
@@ -2462,7 +2762,7 @@ function(input, output, session) {
                   data = data,
                   mapping = mapping,
                   size = 4,
-                  alignPercent = 0.8
+                  align_percent = 0.8
                 ) +
                   scale_colour_discrete()+
                   scale_fill_discrete()
@@ -2488,13 +2788,19 @@ function(input, output, session) {
             ),
             progress = FALSE
           )
-        )
-        }
-
+          if (input$themecolorswitcher=="themeggplot" &&
+              !is.numeric(plotdata[,input$colorpairsin])){
+            p <-  p +
+              scale_colour_hue(drop=!input$themecolordrop)+
+              scale_fill_hue(drop=!input$themecolordrop)
+          }
+          if (input$themecolorswitcher=="themeviridis"){
+            p <-  p +
+              scale_colour_viridis_d(drop=!input$themecolordrop)+
+              scale_fill_viridis_d(drop=!input$themecolordrop)
+          }
+        p <- sourceable(p)
       }
-       
-
-      
     } else if (is.null(input$y) || is.null(input$x)) {
       # Univariate plot
       if(is.null(input$y)){
@@ -2941,10 +3247,11 @@ function(input, output, session) {
             ylab("Count")
           
           if ( input$barplotlabel){
-            p <- p+   geom_text(aes(y = ((..count..)),
+            p <- p +   geom_text(aes(y = ((..count..)),
                                     label = ((..count..))),
                                 stat = "count", vjust = 0.5,size=5,
-                                position = eval(parse(text=input$positionbar)))
+                                position = eval(parse(text=input$positionbar)),
+                                show.legend = input$barplotlabellegend)
           }
           
           
@@ -2959,18 +3266,24 @@ function(input, output, session) {
                      position = eval(parse(text=input$positionbar)))
           
           if ( input$barplotlabel){
-            if(input$positionbar!="position_fill(vjust = 0.5)")
-            {
-              p <- p+   geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+            if(input$positionbar!="position_fill(vjust = 0.5)"){
+              p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
                                       label = scales::percent(
                                         ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]))),
-                                  stat = "count", vjust = 0.5,size=5,
-                                  position = eval(parse(text=input$positionbar)))+
+                                  stat = "count", vjust = 0.5, size=5,
+                                  position = eval(parse(text=input$positionbar)),
+                                  show.legend = input$barplotlabellegend)+
+                ylab("Percentage")    
+            }
+            if(input$positionbar=="position_fill(vjust = 0.5)"){
+              p <- p + geom_text(aes(by=xvalues),
+                                  stat = "prop", vjust = 0.5, size=5,
+                                  position = eval(parse(text=input$positionbar)),
+                                  show.legend = input$barplotlabellegend)+
                 ylab("Percentage")    
             }
             
           }
-          
           
           p <- p +   scale_y_continuous(labels = percent,
                                        expand = expansion(mult = c(input$yexpansion_l_mult,
@@ -3023,7 +3336,8 @@ function(input, output, session) {
               p <- p+   geom_text(aes(x = ((..count..)),
                                       label = ((..count..))),
                                   stat = "count", vjust = 0.5,size=5,
-                                  position = eval(parse(text=input$positionbar)))
+                                  position = eval(parse(text=input$positionbar)),
+                                  show.legend = input$barplotlabellegend)
             }
             
             
@@ -3037,17 +3351,16 @@ function(input, output, session) {
               geom_bar(alpha=0.2,aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..])) ,
                        position = eval(parse(text=input$positionbar)))
             
-            if ( input$barplotlabel){
+            if (input$barplotlabel){
               if(input$positionbar!="position_fill(vjust = 0.5)")
-              {
-                p <- p+   geom_text(aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+              {p <- p+   geom_text(aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
                                         label = scales::percent(
                                           ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]))),
                                     stat = "count", vjust = 0.5,size=5,
-                                    position = eval(parse(text=input$positionbar)))+
-                  ylab("Percentage")    
+                                    position = eval(parse(text=input$positionbar)),
+                                    show.legend = input$barplotlabellegend)+
+                  xlab("Percentage")    
               }
-              
             }
             
             
@@ -3056,7 +3369,7 @@ function(input, output, session) {
                                                                       input$xexpansion_r_mult),
                                                              add  = c(input$xexpansion_l_add,
                                                                       input$xexpansion_r_add))) +
-              ylab("Percentage")
+              xlab("Percentage")
             if ( input$barplotflip){
               p <- p +
                 coord_flip()
@@ -3120,12 +3433,12 @@ function(input, output, session) {
       # if (input$groupin != 'None' & !is.factor(plotdata[,"xvalues"]))
       if (input$groupin != 'None')
         p <- p + aes_string(group=input$groupin)
-      if (input$groupin == 'None' & !is.numeric(plotdata[,"xvalues"]) 
-          & input$colorin == 'None')
-        p <- p + aes(group=1)
-      
-      
-      
+      if(!is.null(plotdata[,"xvalues"])){
+      if (input$groupin == 'None' && !is.numeric(plotdata[,"xvalues"]) 
+          && input$colorin == 'None'){
+        p <- p + aes(group=1L)
+      }
+      }
       if (input$Points=="Points"){
         if (input$jitterdirection =="None"){
           positionpoints <- "position_identity()"
@@ -3406,7 +3719,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                             fun.args=list(conf.int=input$CI), width = input$errbar,
-                            size=input$meanlinesize,
+                            size=input$meancierrorbarsize,
                             alpha=input$meancitransparency,
                             position = eval(parse(text=positionmean)))
             }
@@ -3435,6 +3748,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                               fun.args=list(conf.int=input$CI), width = input$errbar,
                               alpha=input$meancitransparency,
+                              size=input$meancierrorbarsize,
                               position = eval(parse(text=positionmean)))
               }
             if (input$meanlines){
@@ -3535,7 +3849,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                               fun.args=list(conf.int=input$CI), width = input$errbar,
                               alpha=input$meancitransparency,
-                              col=meancoll,
+                              col=meancoll,size=input$meancierrorbarsize,
                               position = eval(parse(text=positionmean)))
               }
               if(input$meanlines) {
@@ -3565,7 +3879,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                               fun.args=list(conf.int=input$CI), width = input$errbar,
                               col=meancoll,
-                              size=input$meanlinesize,
+                              size=input$meancierrorbarsize,
                               alpha=input$meancitransparency,
                               position = eval(parse(text=positionmean)))
               }
@@ -3672,7 +3986,7 @@ function(input, output, session) {
                   stat_sum_df("mean_cl_normal", geom = input$geommeanCI, 
                               fun.args=list(conf.int=input$CI),aes(group=NULL), 
                               alpha=input$meancitransparency,
-                              size=input$meanlinesize, width = input$errbar,
+                              size=input$meancierrorbarsize, width = input$errbar,
                               position = eval(parse(text=positionmean)))
               }
             if(input$meanlines){
@@ -3701,7 +4015,7 @@ function(input, output, session) {
                 stat_sum_df("mean_cl_normal", geom = input$geommeanCI, 
                             fun.args=list(conf.int=input$CI),aes(group=NULL), 
                             alpha=input$meancitransparency,
-                            width = input$errbar,
+                            width = input$errbar,size=input$meancierrorbarsize,
                             position = eval(parse(text=positionmean)))
             }
             if(input$meanlines){
@@ -3801,7 +4115,7 @@ function(input, output, session) {
                 stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                             fun.args=list(conf.int=input$CI), width = input$errbar,
                             alpha=input$meancitransparency,
-                            col=meancoll,aes(group=NULL),
+                            col=meancoll,aes(group=NULL),size=input$meancierrorbarsize,
                             position = eval(parse(text=positionmean)))
             }
             if(input$meanlines) {
@@ -3831,7 +4145,7 @@ function(input, output, session) {
                 stat_sum_df("mean_cl_normal", geom = input$geommeanCI,
                             fun.args=list(conf.int=input$CI), width = input$errbar,
                             col=meancoll,aes(group=NULL),
-                            size=input$meanlinesize,
+                            size=input$meancierrorbarsize,
                             alpha=input$meancitransparency,
                             position = eval(parse(text=positionmean)))
             }
@@ -4398,7 +4712,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            size=input$medianlinesize, alpha=input$PItransparency,
+                            size=input$PIerrorbarsize, alpha=input$PItransparency,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines) {
@@ -4437,7 +4751,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            alpha=input$PItransparency,
+                            size=input$PIerrorbarsize, alpha=input$PItransparency,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines) {
@@ -4540,7 +4854,7 @@ function(input, output, session) {
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
                             alpha=input$PItransparency,
                             col=mediancoll,
-                            size=input$medianlinesize,
+                            size=input$PIerrorbarsize,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines){
@@ -4579,7 +4893,7 @@ function(input, output, session) {
                 stat_sum_df("median_hilow", geom = input$geommedianPI,
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
                             alpha=input$PItransparency,
-                            col=mediancoll,
+                            col=mediancoll,size=input$PIerrorbarsize,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines){
@@ -4684,7 +4998,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,aes(group=NULL), 
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            size=input$medianlinesize,
+                            size=input$PIerrorbarsize,
                             alpha=input$PItransparency,
                             position = eval(parse(text=positionmedian)))
             }
@@ -4720,7 +5034,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,aes(group=NULL), 
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            alpha=input$PItransparency,
+                            size=input$PIerrorbarsize, alpha=input$PItransparency,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines){
@@ -4825,8 +5139,8 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,aes(group=NULL), 
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            alpha=input$PItransparency,
-                            size=input$medianlinesize,col=mediancoll,
+                            size=input$PIerrorbarsize, alpha=input$PItransparency,
+                            col=mediancoll,
                             position = eval(parse(text=positionmedian)))
             }
             if(input$medianlines){
@@ -4864,7 +5178,7 @@ function(input, output, session) {
               p <- p + 
                 stat_sum_df("median_hilow", geom = input$geommedianPI,aes(group=NULL), 
                             fun.args=list(conf.int=input$PI), width = input$medianerrbar,
-                            alpha=input$PItransparency,
+                            size=input$PIerrorbarsize, alpha=input$PItransparency,
                             col=mediancoll,
                             position = eval(parse(text=positionmedian)))
             }
@@ -5175,34 +5489,51 @@ function(input, output, session) {
       if(input$addcustomlabel&&input$labeltextin != 'None') {
         
         if ( is.numeric(plotdata[,input$labeltextin]) && input$roundlabeldigits) {
-            p <- p + aes_string(label = paste("round(",input$labeltextin,",",input$nroundlabeldigits,")"))
+           label_aes <- aes_string(label = paste("round(",input$labeltextin,",",input$nroundlabeldigits,")"))
         }
         if ( is.numeric(plotdata[,input$labeltextin]) && !input$roundlabeldigits) {
-          p <- p + aes_string(label = input$labeltextin)
+          label_aes <- aes_string(label = input$labeltextin)
         }          
         if ( !is.numeric(plotdata[,input$labeltextin]) ) {
-          p <- p + aes_string(label = input$labeltextin)
+          label_aes <- aes_string(label = input$labeltextin)
         }
         
         if(!input$customlabelignorecol ) {
           if(!input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
-              p <- p + stat_identity(data=plotdata, geom=input$geomlabel,show.legend = input$customlabellegend,
-                                     size=input$labelsize, seed = 1234)
+              p <- p + stat_identity(data=plotdata,
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     size=input$labelsize,
+                                     seed = 1234,
+                                     mapping = label_aes)
             }
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,geom=input$geomlabel, show.legend = input$customlabellegend, seed = 1234)
+              p <- p + stat_identity(data=plotdata,
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     seed = 1234,
+                                     mapping = label_aes)
             } 
           }#do notignoregroup 
           
           if(input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL), geom=input$geomlabel, show.legend = input$customlabellegend,
-                                     size=input$labelsize, seed = 1234)
+              p <- p + stat_identity(data=plotdata,
+                                     aes(group=NULL),
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     size=input$labelsize,
+                                     seed = 1234,
+                                     mapping = label_aes)
             }
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL),geom=input$geomlabel,
-                                     show.legend = input$customlabellegend, seed = 1234)
+              p <- p + stat_identity(data=plotdata,
+                                     aes(group=NULL),
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     seed = 1234,
+                                     mapping = label_aes)
               
             }
             
@@ -5213,27 +5544,45 @@ function(input, output, session) {
         if(input$customlabelignorecol ) {
           if(!input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
-              p <- p + stat_identity(data=plotdata, color=input$customlabelcol ,geom=input$geomlabel, show.legend = input$customlabellegend,
-                                     size=input$labelsize, seed = 1234)
+              p <- p + stat_identity(data=plotdata,
+                                     color=input$customlabelcol,
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     size=input$labelsize,
+                                     seed = 1234,
+                                     mapping = label_aes)
               
             }
             if(!input$labelignoresize){
-              p <- p  + stat_identity(data=plotdata, color=input$customlabelcol ,geom=input$geomlabel,
-                                      show.legend = input$customlabellegend, seed = 1234)
+              p <- p  + stat_identity(data=plotdata,
+                                      color=input$customlabelcol,
+                                      geom=input$geomlabel, position = "identity",
+                                      show.legend = input$customlabellegend,
+                                      seed = 1234,
+                                      mapping = label_aes)
               
             }
           }#do notignoregroup 
           
           if(input$addcustomlabelignoregroup) {
             if(input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel,
+              p <- p + stat_identity(data=plotdata,
+                                     aes(group=NULL),
+                                     color=input$customlabelcol,
+                                     geom=input$geomlabel, position = "identity",
                                      show.legend = input$customlabellegend,
-                                     size=input$labelsize, seed = 1234)
+                                     size=input$labelsize,
+                                     seed = 1234,
+                                     mapping = label_aes)
             }
             
             if(!input$labelignoresize){
-              p <- p + stat_identity(data=plotdata,aes(group=NULL), color=input$customlabelcol ,geom=input$geomlabel,
-                                     show.legend = input$customlabellegend, seed = 1234 )                
+              p <- p + stat_identity(data=plotdata,aes(group=NULL),
+                                     color=input$customlabelcol,
+                                     geom=input$geomlabel, position = "identity",
+                                     show.legend = input$customlabellegend,
+                                     seed = 1234,
+                                     mapping = label_aes)                
             }
             
           }#ignoregroup   
@@ -6169,44 +6518,38 @@ function(input, output, session) {
         
       }
       
-      if(input$colorin!="None"){
-        
-        if (input$themecolorswitcher=="themeggplot"&&!is.numeric(plotdata[,input$colorin])){
+      if(!input$show_pairs && input$colorin!="None"){
+        if (input$themecolorswitcher=="themeggplot" &&
+            !is.numeric(plotdata[,input$colorin])){
           p <-  p + scale_colour_hue(drop=!input$themecolordrop)
         }
-        
-
-        if (input$themecolorswitcher=="themeviridis" && !is.numeric(plotdata[,input$colorin])){
+        if (input$themecolorswitcher=="themeviridis" &&
+            !is.numeric(plotdata[,input$colorin])){
           p <-  p + scale_colour_viridis_d(drop=!input$themecolordrop)
         }
-        
-        if (input$themecontcolorswitcher=="themeviridis" && is.numeric(plotdata[,input$colorin])){
+        if (input$themecontcolorswitcher=="themeviridis" &&
+            is.numeric(plotdata[,input$colorin])){
           p <-  p + scale_colour_viridis_c()
         }
-        
       }
-      
-      
-      if(input$fillin!="None"){
-        if (input$themecolorswitcher=="themeggplot"&&!is.numeric(plotdata[,input$fillin])){
-          p <-  p + scale_fill_hue(drop=!input$themecolordrop)
-          
-        }
-        
 
-        if (input$themecolorswitcher=="themeviridis"&&!is.numeric(plotdata[,input$fillin])){
+      if(!input$show_pairs && input$fillin!="None"){
+        if (input$themecolorswitcher=="themeggplot" &&
+            !is.numeric(plotdata[,input$fillin])){
+          p <-  p + scale_fill_hue(drop=!input$themecolordrop)
+        }
+        if (input$themecolorswitcher=="themeviridis" &&
+            !is.numeric(plotdata[,input$fillin])){
           p <-  p + scale_fill_viridis_d(drop=!input$themecolordrop)
         }
-        
-        if (input$themecontcolorswitcher=="themeviridis"&&is.numeric(plotdata[,input$fillin])){
+        if (input$themecontcolorswitcher=="themeviridis"&&
+            is.numeric(plotdata[,input$fillin])){
           p <-  p + scale_fill_viridis_c()
         }
         
       }
       
-      
       if(input$pointsizein!="None"){
-        
         if(!input$scalesizearea&&is.numeric(plotdata[,input$pointsizein])){
           p <- p +  scale_size(range = c(input$scalesizearearange1[1], input$scalesizearearange1[2]))   }   
         if(input$scalesizearea&&is.numeric(plotdata[,input$pointsizein])){
@@ -6341,6 +6684,7 @@ function(input, output, session) {
     titlelinebreak <- gsub("\\\\n", "\\\n", input$title)
     subtitlelinebreak <- gsub("\\\\n", "\\\n", input$subtitle)
     captionlinebreak <- gsub("\\\\n", "\\\n", input$caption)
+    plottaglinebreak <- gsub("\\\\n", "\\\n", input$plottag)
     
     if (input$xlab!="") {
       p <- p + xlab(xlablinebreak)
@@ -6554,6 +6898,10 @@ function(input, output, session) {
       p <- p + labs(caption=captionlinebreak)
       p <- attach_source_dep(p, "captionlinebreak")
     }
+    if (input$plottag!="") {
+      p <- p + labs(tag=plottaglinebreak)    
+      p <- attach_source_dep(p, "plottaglinebreak")
+    }
     p
     
   }
@@ -6575,20 +6923,20 @@ function(input, output, session) {
   
   output$clickheader <-  renderUI({
     df <-finalplotdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     h4("Clicked points")
   })
   
   output$brushheader <-  renderUI({
     df <- finalplotdata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     h4("Brushed points")
     
   })
   
   output$plot_clickedpoints <- renderTable({
     df<- finalplotdata()  
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     res <- nearPoints(df, input$plot_click, "xvalues", "yvalues")
     if (nrow(res) == 0|is.null(res))
       return(NULL)
@@ -6596,7 +6944,7 @@ function(input, output, session) {
   })
   output$plot_brushedpoints <- renderTable({
     df<- finalplotdata()  
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     res <- brushedPoints(df, input$plot_brush, "xvalues","yvalues")
     if (nrow(res) == 0|is.null(res))
       return(NULL)
@@ -6677,7 +7025,7 @@ function(input, output, session) {
   
   output$dstats_col_extra <- renderUI({
     df <-tabledata()
-    validate(       need(!is.null(df), "Please select a data set"))
+    validate(need(!is.null(df), "Please select a data set"))
     selectInput("dstatscolextrain", "Extra Column Split:", c("None" = "."))
   })
   
@@ -6713,7 +7061,7 @@ function(input, output, session) {
   })  
   
   dstatsTableData <- reactive({
-    df <-tabledata()
+    df <- tabledata()
     validate(
       need(!is.null(df), "Please select a data set") 
     )
@@ -6721,6 +7069,11 @@ function(input, output, session) {
                   "No y variable(s) selected"))
     validate(need(!is.null(input$x), 
                   "No x variable(s) selected"))
+    if (!is.null(df) && !is.null(input$x) && !is.null(input$y) ){
+      validate(  need(!is.element(input$x,input$y) ,
+                      "Please select a different x variable or remove the x variable from the list of y variable(s)"))
+    }
+    
     req(input$dstatscolextrain)
     
     tabledata <- df
@@ -6765,9 +7118,11 @@ function(input, output, session) {
     stats.fun <- list(
       "None"                 = function(x) "",
       "N"                    = function(x) x$N,
+      "N Missing"            = function(x) x$NMISS,
       "Mean"                 = function(x) x$MEAN,
       "SD"                   = function(x) x$SD,
       "CV%"                  = function(x) x$CV,
+      "Sum"                  = function(x) x$SUM,
       "Median"               = function(x) x$MEDIAN,
       "q01"                  = function(x) sprintf("%s", x$q01),
       "q02.5"                = function(x) sprintf("%s", x$q02.5),
@@ -6848,8 +7203,13 @@ function(input, output, session) {
       formula <- as.formula(paste("~", paste(c(LHS, RHS), collapse=" | ")))
       overall <- if (input$table_incl_overall) "Overall" else FALSE
       t <- table1(formula, data=df, overall=overall,
+                  caption =input$tablecaption,
+                  footnote = input$tablefootnote,
                   topclass=paste("Rtable1", input$table_style),
-                  render.continuous=dstatsRenderCont())
+                  render.missing = if(input$table_suppress_missing) NULL else render.missing.default,
+                  render.continuous=dstatsRenderCont(),
+                  render.categorical=function(x)
+                    my.render.cat(x,na.is.category=input$table_na_is_category))
       values$prevTable <- t
       t
     }
