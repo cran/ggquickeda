@@ -1,27 +1,25 @@
 suppressMessages({
-  library(zoo)
+  library(colourpicker)
+  library(dplyr)
+  library(DT)
+  library(GGally)
+  library(ggplot2)
+  library(ggbeeswarm)
+  library(ggpmisc)
+  library(ggstance)
+  library(ggpubr)
+  library(ggrepel)
+  library(ggquickeda)
+  library(Hmisc)
+  library(markdown)
+  library(plotly)
+  library(quantreg)
+  library(rlang)
   library(shiny)
   library(shinyjs)
-  library(colourpicker)
-  library(ggplot2)
-  library(ggpubr)
-  library(scales)
-  library(DT)
-  library(tidyr)
-  library(dplyr)
-  library(Hmisc)
-  library(quantreg)
-  library(markdown)
-  library(rlang)
-  library(lazyeval)
-  library(ggrepel)
-  library(plotly)
-  library(ggpmisc)
-  library(ggquickeda)
-  library(table1)
   library(survminer)
-  library(ggstance)
-  library(GGally)
+  library(table1)
+  library(tidyr)
 })
 ###########################
 #### ARIDHIA ADDITIONS ####
@@ -67,19 +65,36 @@ stat_sum_single <- function(fun, geom="point", ...) {
   stat_summary(fun = fun,  geom=geom,  ...)
 }
 
-median.n <- function(x){
+median.n <- function(x, nroundlabel = 2){
   return(c(y = ifelse(median(x)<0,median(x),median(x)),
-           label = round(median(x),2))) 
+           label = round(median(x),nroundlabel))) 
 }
-give.n <- function(x){
-  return(c(y = min(x)*1,  label = length(x))) 
-}
-
-mean.n <- function(x){
+mean.n <- function(x, nroundlabel = 2){
   return(c(y = ifelse(mean(x)<0,mean(x),mean(x)),
-           label = round(mean(x),2))) 
+           label = round(mean(x),nroundlabel))) 
 }
 
+give.n <- function(x, nposition = c("min","max","below","up"),
+                   mult = 1, add = 0
+){
+  if ( nposition == "below"){
+    yposition <- -Inf
+  } else if (nposition == "up")  {
+    yposition <- Inf
+  } else if (nposition == "min"){
+    yposition <- min(x)*mult + add 
+  } else 
+    yposition <- max(x)*mult + add 
+  return(c(y = yposition,  label = length(x))) 
+}
+
+label_wrap <- function(width) {
+  force(width)
+  function(x) {
+    unlist(lapply(strwrap(x, width = width, simplify = FALSE), 
+                  paste0, collapse = "\n"))
+  }
+}
 
 tableau10 <- c("#1F77B4","#FF7F0E","#2CA02C","#D62728","#9467BD",
                "#8C564B","#E377C2","#7F7F7F","#BCBD22","#17BECF")
@@ -294,3 +309,38 @@ my.render.cat <- function (x, ..., na.is.category = FALSE)
                                    if (na.is.category) PCT else PCTnoNA))))
 }
 
+draw_key_errorbar <- function (data, params, size) {
+    data$linetype[is.na(data$linetype)] <- 0
+    grid::segmentsGrob(c(0.2, 0.2, 0.5),
+                       c(0.2, 0.8, 0.2),
+                       c(0.8, 0.8, 0.5),
+                       c(0.2, 0.8, 0.8),
+                 gp = grid::gpar(col = alpha(data$colour,data$alpha),
+                           lwd = data$size * ggplot2::.pt,
+                           lty = data$linetype,
+                           lineend = "butt"),
+                           arrow = params$arrow)
+}
+draw_key_errorbarh <- function (data, params, size) {
+  data$linetype[is.na(data$linetype)] <- 0
+  grid::segmentsGrob(y0=c(0.2, 0.2, 0.5),
+                     x0=c(0.2, 0.8, 0.2),
+                     y1=c(0.8, 0.8, 0.5),
+                     x1=c(0.2, 0.8, 0.8),
+                     gp = grid::gpar(col = alpha(data$colour,data$alpha),
+                                     lwd = data$size * ggplot2::.pt,
+                                     lty = data$linetype,
+                                     lineend = "butt"),
+                     arrow = params$arrow)
+}
+
+draw_key_boxploth <- function (data, params, size) {
+  grid::grobTree(grid::linesGrob(c(0.1, 0.25), 0.5),
+                 grid::linesGrob(c(0.75,0.9), 0.5),
+                 grid::rectGrob(height = 0.75, width = 0.5),
+                 grid::linesGrob(0.5,c(0.125, 0.875)),
+                 gp = grid::gpar(col = data$colour,
+                     fill = alpha(data$fill, data$alpha),
+                     lwd = data$size * ggplot2::.pt,
+                     lty = data$linetype))
+}

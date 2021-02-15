@@ -60,11 +60,12 @@ knitr::kable(remdesivirdata)
     + Set **Facet Scales** to 'free_y' (this allows only Subgroupvalue specific to the Subgroup to appear on each graph panel)
     + Set **Facet Spaces** to 'free_y' (this allows for each panel to occupy space proportional to the number of unique Subgroupvalue)
     + Set **Facet Switch to Near Axis** to 'y' (this will move the y strips to the left)
+    + Set **Strip Placement** to 'outside' (this will put the y strips to the left of the axis)
 
 We still have to set text formatting options using the group of subtabs in the lower part of the page:  
 
 * Default subtab: **Facet Text Size/Angle/Face**    
-    + Set **Facet Text Angle Y** to 0
+    + Set **Facet Text Angle Y** to 0 (if not automatically set)
     + Check the **Y strip Text Bold**
 
 * Second subtab: **Facet Text Justification**  
@@ -87,7 +88,7 @@ At this point you should have this graph:
 
 ![reordering of subgroup](./sumdata4.png){width=50%}
 
-While you can add another variable and manually drag and drop we will demo next another possibility to reorder yvalues using a statistic of another variable e.g. median:
+While you can add another variable and manually drag and drop we will demo next another possibility to reorder yvalues using a statistic (e.g. median) of another variable (Subroupvalueorder):
 
 * Select the **Reorder Facets or axis Levels** subtab 
     + Set **Reorder This Variable** to  'yvalues'
@@ -104,11 +105,12 @@ While you can add another variable and manually drag and drop we will demo next 
 * Select the **Median (PIs)** subtab 
     + Set **Median** to  'Median/PI'
     + Set **PI Geom:** to  'errorbar'
-    + Set **PI %:** to 1 (this ensures to use the min and max for the errorbar)
-    + Check **Show points**
+    + Set **PI %:** to 1 (this ensures that the errorbar goes from the min to max of values)
+    + Uncheck **Show lines**  and check **Show points**
     + Set **Median(s) Point(s) Size:** to 6
     
 ![Median/PI options](./sumdata6.png){width=75%}
+
 ### Setting Titles, Captions and Logging the X axis
 
 * Select the **Graph Options** subtab next to the **Inputs** and in the first default subtab **X/Y Axes Log/Labels**:   
@@ -123,6 +125,6 @@ And now you should get the below plot !:
 
 ### Example of what is Possible with `ggquickeda`
 
-As an example of even more advanced features consider the screenshot below where the N of patients as well as the Intervals Values are shown.
+As an example of even more advanced features consider the screenshot below where the Intervals Values are shown while the point Size is proportional to the N of patients. Some theme adjustments to customize the plot and legend were also done.
 
 ![more options](./sumdata8.png){width=100%}
