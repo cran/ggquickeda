@@ -113,7 +113,10 @@ fluidPage(
                 condition = "input.reordervarin!='' " ,
                 selectizeInput(
                   "functionordervariable", 'By the:',
-                  choices =c("Median","Mean","Minimum","Maximum","N","N Unique","SD","Sum") ,multiple=FALSE)
+                  choices =c("Median","Mean","Minimum","Maximum",
+                             "N","N Unique",
+                             "SD","Sum",
+                             "Min-Max Difference") ,multiple=FALSE)
               ),
               uiOutput("variabletoorderby"),
               conditionalPanel(
@@ -152,7 +155,9 @@ fluidPage(
             tabPanel("X/Y Axes Log/Labels", value = "x_y_loglabels",
               hr(),
               textInput('ylab', 'Y axis Title', value = "") ,
+              checkboxInput('parseyaxistitle', 'Parse Y axis Title?', value = FALSE),
               textInput('xlab', 'X axis Title', value = "") ,
+              checkboxInput('parsexaxistitle', 'Parse X axis Title?', value = FALSE),
               checkboxInput('customizeaxestitles', 'Customize Axes Titles ?', value = FALSE),
               conditionalPanel(condition = "input.customizeaxestitles" ,
                                tabsetPanel(
@@ -315,9 +320,10 @@ fluidPage(
             tabPanel("Graph Size/Zoom", value = "graph_size_zoom",
               sliderInput("height", "Plot Height", min=1080/4, max=1080, value=480, animate = FALSE),
               conditionalPanel(condition = "!input.show_pairs",
-              h6("X Axis Zoom Automatic is available if you have exactly one x variable and it generates a slider with limits between your x variable min/max.
-                 User let you input your own limits (works for more than one x and when left empty will use the default ggplot computed limit).
-                 If facet scales on the x position are free then no zooming is allowed. At the moment zoom does not work with univariate plots."),
+              h6("X Axis Zoom Automatic generates a slider with limits between your x variable(s) min/max.
+                 The User option lets you input your own limits (when left empty it defaults to ggplot computed limit).
+                 If facet scales on the x position are free then zooming will override it.
+                 Univariate plots are not supported while datetime, POSIXct data have partial support."),
               fluidRow(
                 column(12,
                        radioButtons("xaxiszoom", "X Axis Zoom:",
@@ -326,17 +332,17 @@ fluidPage(
                                       "User" = "userxzoom"),inline=TRUE )
                        ,
                        conditionalPanel(condition = "input.xaxiszoom=='automaticxzoom'",
-                                        uiOutput("xaxiszoom") ) ),
+                                        uiOutput("xaxiszoomslider") ) ),
                 column(6,
                        conditionalPanel(condition = "input.xaxiszoom=='userxzoom' ",uiOutput("lowerx")) ),
                 column(6,
                        conditionalPanel(condition = "input.xaxiszoom=='userxzoom' ",uiOutput("upperx")) )
               ),# fluidrow
-            
-              h6("Y Axis Zoom Automatic is available if you have exactly one y variable and it generates a slider with limits between your y variable min/max.
-                 User let you input your own limits (works for more than one y and when left empty will use the default ggplot computed limit).
-                 If facet scales on the y position are free then no zooming is allowed. At the moment zoom does not work with univariate plots."),
-              fluidRow(
+              h6("Y Axis Zoom Automatic generates a slider with limits between your y variable(s) min/max.
+                 The User option lets you input your own limits (when left empty it defaults to ggplot computed limit).
+                 If facet scales on the y position are free then zooming will override it.
+                 Univariate plots are not supported while datetime, POSIXct data have partial support."),
+                    fluidRow(
                 column(12,
                        radioButtons("yaxiszoom", "Y Axis Zoom:",
                                     c("None" = "noyzoom",
@@ -344,12 +350,15 @@ fluidPage(
                                       "User" = "useryzoom"),inline=TRUE )
                        ,
                        conditionalPanel(condition = "input.yaxiszoom=='automaticyzoom'",
-                                        uiOutput("yaxiszoom") ) ),
+                                        uiOutput("yaxiszoomslider") ) ),
                 column(6,
                        conditionalPanel(condition = "input.yaxiszoom=='useryzoom' ",uiOutput("lowery")) ),
                 column(6,
                        conditionalPanel(condition = "input.yaxiszoom=='useryzoom' ",uiOutput("uppery")) ),
                 column(12,
+                       checkboxInput('custom_scale_x_expansion',
+                                     'Custom Add/Mult X Scale Expansion?', value = FALSE),
+                       conditionalPanel(condition = "input.custom_scale_x_expansion ",
                        inline_ui(
                          numericInput("xexpansion_l_add",label = "x expansion left additive",
                                       value = 0, min = 0, max = NA, step = 0.1, width='120px')),
@@ -362,8 +371,12 @@ fluidPage(
                        inline_ui(
                          numericInput("xexpansion_r_mult",label = "x expansion right multiplicative",
                                       value = 0.05, min = 0, max = NA, step = 0.1 , width='120px'))
+                       )
                        ),
                 column(12,
+                       checkboxInput('custom_scale_y_expansion',
+                                     'Custom Add/Mult Y Scale Expansion?', value = FALSE),
+                       conditionalPanel(condition = "input.custom_scale_y_expansion ",
                        inline_ui(
                          numericInput("yexpansion_l_add",label = "y expansion bottom additive",
                                       value = 0,min=0,max=NA,width='120px')),
@@ -376,7 +389,7 @@ fluidPage(
                        inline_ui(
                          numericInput("yexpansion_r_mult",label = "y expansion top multiplicative",
                                       value = 0.05, min=0,max=NA,width='120px'))
-                ),
+                )),
                 column(12,
                        checkboxInput('expand', 'Allow Coordinate Expansion?', value = TRUE),
                        checkboxInput('clip', 'Clip Plot Area?', value = TRUE)
@@ -644,6 +657,8 @@ fluidPage(
               ),
             
             tabPanel("Reference Lines/Target", value ="ref_line_target_options",
+              h6("Adding annotations of reference lines is supported for numeric and categorical x/y positions.
+                  Support for POSIXct x/y is limited at the moment."),
               checkboxInput('identityline', 'Identity Line')    ,   
               checkboxInput('horizontalzero', 'Horizontal Zero Line'),
               checkboxInput('customvline1', 'Vertical Line 1'),
@@ -736,19 +751,54 @@ fluidPage(
                                         "Color Blind 2" = "themecolorblind2",
                                         "ggplot default" = "themeggplot",
                                         "viridis"        = "themeviridis",
+                                        "brewer" = "themebrewer",
                                         "User defined" = "themeuser")
                                       ,inline=TRUE),
-                         h6("If you get /Error: Insufficient values in manual scale. ## needed but only 10 provided.
-                 Try to use Tableau 20 or ggplot default. Color Blind and Color Blind 2 Themes support up to 8 colors.
-                 Contact me if you want to add your own set of colors."),
+                         conditionalPanel(
+                           condition = "input.themecolorswitcher == 'themeviridis'" ,
+                           radioButtons("themeviridispalettes",
+                                        "Viridis Palettes:",
+                                        c("viridis"  = "viridis",
+                                          "magma"  = "magma",
+                                          "plasma"  = "plasma",
+                                          "inferno"  = "inferno",
+                                          "civids"  = "civids",
+                                          "mako"  = "mako",
+                                          "rocket"  = "rocket",
+                                          "turbo"  = "turbo")
+                                        ,inline=TRUE)
+                         ),
+                         conditionalPanel(
+                           condition = "input.themecolorswitcher == 'themebrewer'" ,
+                           radioButtons("themebrewerpalettes",
+                                        "Brewer Palettes:",
+                                        c("Blues"  = "Blues",
+                                          "Reds"  = "Reds",
+                                          "Purples"  = "Purples",
+                                          "Oranges"  = "Oranges",
+                                          "Greens"  = "Greens")
+                                        ,inline=TRUE)
+                         ),                 
+              h6("if when using Tableau 10 (10 colors) or Color Blind/Color Blind 2 (8 colors) you get /Error: Insufficient values in manual scale. ## needed but only 10 or 8 provided,
+                Switch to using a color scale with more colors: brewer (9 colors + grays), Tableau 20 (20 colors), ggplot default and viridis (unlimited colors).
+                When possible, the app will auto switch to Tableau 20 or ggplot default, it will also try to increas the limit of User defined colors.
+                Contact me if you want to add your own set of colors."),
+              
+                         conditionalPanel(condition =
+                                          "input.themecolorswitcher == 'themebrewer' ||
+                                           input.themecolorswitcher == 'themeviridis'" 
+                                          ,
+                     checkboxInput('viridisbrewerdirection','Reverse the Color Palette?',value=FALSE)
+                         ),
                          conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
                                           sliderInput("nusercol", "N of User Colors:",
                                                       min=2, max=30, value=c(10),step=1)
                          ),
                          uiOutput('userdefinedcolor'),
                          conditionalPanel(condition = " input.themecolorswitcher=='themeuser' " ,
-                                          actionButton("userdefinedcolorreset", "Back to starting tableau colours", icon = icon("undo") ),
-                                          actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") )
+                                          actionButton("userdefinedcolorreset", "Tableau colours", icon = icon("undo") ),
+                                          actionButton("userdefinedcolorhighlight", "Highligth first colour", icon = icon("search") ),
+                                          actionButton("userdefinedcolorblues", "Brewer blues", icon = icon("palette") )
                                           
                          )
                 ),
@@ -774,10 +824,12 @@ fluidPage(
                                         "Red White Green"  = "RedWhiteGreen",
                                         "ggplot default" = "themeggplot",
                                         "viridis" = "themeviridis",
+                                        "distiller" = "themedistiller",
                                         "User defined" = "themeuser")
                                       ,inline=TRUE),
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
-                                             input.themecontcolorswitcher=='RedWhiteGreen'" ,
+                         conditionalPanel(condition =
+                         " input.themecontcolorswitcher=='RedWhiteBlue' |
+                           input.themecontcolorswitcher=='RedWhiteGreen'" ,
                                           colourpicker::colourInput(
                                             "midcolor",
                                             "Midpoint Color",
@@ -785,23 +837,48 @@ fluidPage(
                                             showColour = "both",
                                             allowTransparent = FALSE,returnName = TRUE)
                          ),
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
+                         conditionalPanel(condition = " input.themecontcolorswitcher=='themedistiller'" ,
+                                          radioButtons("themedistillerpalettes",
+                                                         "Distiller Palettes:",
+                                                         c("Blues"  = "Blues",
+                                                           "Reds"  = "Reds",
+                                                           "Purples"  = "Purples",
+                                                           "Oranges"  = "Oranges",
+                                                           "Greens"  = "Greens")
+                                                         ,inline=TRUE),
+                       checkboxInput('distillerdirection','Reverse the Distiller Palette?',value=FALSE)
+                         ),
+                       conditionalPanel(condition = " input.themecontcolorswitcher=='themeviridis'" ,
+                                        radioButtons("themeviridiscpalettes",
+                                                     "Viridis Palettes:",
+                                                     c("viridis"  = "viridis",
+                                                       "magma"  = "magma",
+                                                       "plasma"  = "plasma",
+                                                       "inferno"  = "inferno",
+                                                       "civids"  = "civids",
+                                                       "mako"  = "mako",
+                                                       "rocket"  = "rocket",
+                                                       "turbo"  = "turbo")
+                                                     ,inline=TRUE),
+                                        checkboxInput('viridiscdirection','Reverse the Viridis Palette?',value=FALSE)
+                       ),
+                       conditionalPanel(condition = " input.themecontcolorswitcher=='RedWhiteBlue' |
                                              input.themecontcolorswitcher=='RedWhiteGreen'|
                                              input.themecontcolorswitcher=='themeuser'" ,
                                           numericInput("colormidpoint", "Continuous Color/Fill Midpoint Value",
                                                        value = 0)
                          ),
+                          conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
+                                           gradientInputUI("gradientcol", "100%", "www"),
+                                           actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
+                                           ),
+                         
                          # conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                         #                  gradientInputUI("gradientcol", "100%", "www"),
-                         #                  actionButton("gradientreset", "Back to starting colours",icon = icon("undo") )
-                         #                  ),
-                         
-                         
-                         conditionalPanel(condition = " input.themecontcolorswitcher=='themeuser' " ,
-                                          uiOutput('userdefinedcontcolor'),
-                                          actionButton("userdefinedcontcolorreset", "Back to starting continuous colours", icon = icon("undo") )
-                                          
-                         )    
+                         #                  uiOutput('userdefinedcontcolor'),
+                         #                  actionButton("userdefinedcontcolorreset",
+                         #                               "Back to starting continuous colours", icon = icon("undo") )
+                         #                  
+                         # )    
                          
                 )
               ),
@@ -1034,6 +1111,7 @@ fluidPage(
                                      "Jitter Horizontal"  = "Horizontal",
                                      "Jitter Both" = "Default",
                                      "Jitter Custom" = "Custom",
+                                     "Nudge" = "Nudge",
                                      "Side By Side"= "dodge",
                                      "Top on Top"= "dodgev",
                                      "Quasirandom"= "quasirandom",
@@ -1060,6 +1138,13 @@ fluidPage(
                         inline_ui(numericInput("jitterhorizontal",
                                                label = "Horizontal Jitter Width",
                                                value = 0.1, min = 0, step = 0.1,width='120px'))
+                      ),
+                      conditionalPanel(
+                        " input.jitterdirection== 'Nudge' ",
+                        inline_ui(numericInput("position_nudge_x",label = "X nudge",
+                                               value = 0, min = 0, step = 0.1, width='120px')) ,
+                        inline_ui(numericInput("position_nudge_y",label = "Y nudge",
+                                               value = 0, min = 0, step = 0.1,width='120px'))
                       ),
                       conditionalPanel(
                         " input.jitterdirection== 'dodge' ",
@@ -1573,7 +1658,7 @@ fluidPage(
               )
               ,
               ### Mean CI section
-              tabPanel("Mean (CI)",
+              tabPanel("Mean (CI/mult_sd)",
                        value = "mean_ci",
                        fluidRow(
                          column (2,
@@ -1583,6 +1668,7 @@ fluidPage(
                                    c(
                                      "Mean" = "Mean",
                                      "Mean/CI" = "Mean/CI",
+                                     "Mean/mult_sd" = "Mean/mult_sd",
                                      "None" = "None"
                                    ) ,
                                    selected = "None",
@@ -1612,16 +1698,21 @@ fluidPage(
                          ),#first column
                          column (2,
                                 conditionalPanel(
-                                   " input.Mean== 'Mean/CI' ",
+                                   " input.Mean== 'Mean/CI' | input.Mean== 'Mean/mult_sd' ",
                                    radioButtons("geommeanCI", "CI Geom:",
                                                 c("errorbar" = "errorbar",
                                                   "ribbon"= "ribbon"),
                                                 selected = "errorbar",
                                                 inline = TRUE),
-                                   sliderInput("CI","CI %:",
-                                     min = 0, max = 1, value = c(0.95), step = 0.01),
-                                   sliderInput("meancitransparency", "CI Transparency:",
+                                   conditionalPanel("input.Mean== 'Mean/CI' ",
+                                                    sliderInput("CI","CI %:",
+                                     min = 0, max = 1, value = c(0.95), step = 0.01)
+                                     ),
+                                   sliderInput("meancitransparency", "Interval Transparency:",
                                                min=0, max=1, value=c(0.2),step=0.01),
+                                   conditionalPanel("input.Mean== 'Mean/mult_sd' ",
+                                   sliderInput("meansd_mult", "SD Multiplier:",
+                                               min=0, max=6, value=c(2),step=0.01) ),
                                    conditionalPanel(" input.geommeanCI == 'errorbar' ",
                                     sliderInput("meancierrorbarsize","Errorbar(s) Line(s) Size:",
                                                 min=0, max=4, value=c(1),step=0.1)
@@ -1736,6 +1827,12 @@ fluidPage(
                                                  numericInput("nroundmeandigits",
                                                               label = "Mean N Digits",
                                                               value = 1,min=0,max=10)
+                                ),
+                                conditionalPanel("input.meanvalues &&
+                                                 (input.yaxisscale =='logy' |input.xaxisscale=='logyx' )",
+                                                 checkboxInput('expmean',
+                                                               '10^Mean Label',
+                                                               value = FALSE) 
                                 )
                                 
                                 ), # fourth column
@@ -1909,7 +2006,14 @@ fluidPage(
                                         numericInput("nroundmediandigits",
                                                      label = "Median N Digits",
                                                      value = 1,min=0,max=10)
-                       ) 
+                                        
+                       ),
+                       conditionalPanel("input.medianvalues &&
+                                                 (input.yaxisscale =='logy' |input.xaxisscale=='logyx' )",
+                                        checkboxInput('expmedian',
+                                                      '10^Median Label',
+                                                      value = FALSE) 
+                       )
                        
                 ), # fourth column
                 
@@ -2305,8 +2409,8 @@ fluidPage(
                   numericInput("export_nrow", "Rows per page",
                                value = 1, min = 1, max = 20),
                   numericInput("export_ncol", "Columns per page",
-                               value = 1, min = 1, max = 20)
-                  
+                               value = 1, min = 1, max = 20),
+                  h6("Multiple plots per page cannot be used with Pairs/Matrix plots.")
                 ),
                 uiOutput("export_btn_ui")
               )

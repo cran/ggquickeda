@@ -1,3 +1,18 @@
+# ggquickeda 0.2.1
+* added a new method for factor reordering min/max difference
+* added the mean +/- multiples of standard deviations summary using the `mean_sdl` function
+* allowed to transform the label for mean and median to 10^ (useful when the x/y axis are logged)
+* fixed a namespace bug with calling the `scales` package functions like `muted` or `trans_xxx` without the package being loaded, now using `::`.
+* fixed a bug with `updateColourInput` which is now only available from the `colourpicker` package
+* reactivating the colorgradient widget after `shinyjqui` bug was updated and fixed
+* added distiller continuous Blues and brewer discrete palettes
+* added possibility to specify palette for viridis discrete and continuous with possibility to reverse the scale
+* added more support for `POSIXct` variables where previously they were being treated as character
+* automatic zoom slider is now working with `POSIXct`
+* automatic Slider or User zoom now is controllable when facets scales are free  
+* discrete scale is no longer applied when the x and or y variable inherits from `POSIXct`
+* modifying X/Y scale expansion is now optional (fixed auto expansion with free facets)
+
 # ggquickeda 0.2.0
 * Added Violin plots
 * Added options and fixes for histograms, barplots and densities

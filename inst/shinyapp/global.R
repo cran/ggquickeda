@@ -31,32 +31,29 @@ suppressMessages({
 DATABASE_CONN <- NULL
 PGDATABASE <- Sys.getenv("PGDATABASE")
 PGHOST <- Sys.getenv("PGHOST")
-PORT <- Sys.getenv("PORT")
 PGUSER <- Sys.getenv("PGUSER")
 PGPASSWORD <- Sys.getenv("PGPASSWORD")
-if (PGDATABASE != "" && PGHOST != "" && PORT != "" && PGUSER != "" && PGPASSWORD != "") {
-  if (dbCanConnect(RPostgres::Postgres(),
-                   dbname = PGDATABASE,
-                   host = PGHOST,
-                   port = PORT,
-                   user = PGUSER,
-                   password = PGPASSWORD)
-  ) {
-    # get connection to database
-    DATABASE_CONN <- dbConnect(RPostgres::Postgres(),
-                               dbname = PGDATABASE,
-                               host = PGHOST,
-                               port = PORT,
-                               user = PGUSER,
-                               password = PGPASSWORD)
-  }
+
+if (dbCanConnect(RPostgres::Postgres(),
+                 dbname = PGDATABASE,
+                 host = PGHOST,
+                 user = PGUSER,
+                 password = PGPASSWORD)
+) {
+  # get connection to database
+  DATABASE_CONN <- dbConnect(RPostgres::Postgres(),
+                             dbname = PGDATABASE,
+                             host = PGHOST,
+                             user = PGUSER,
+                             password = PGPASSWORD)
 }
+
 
 #### ARIDHIA ADDITIONS ####
 ###########################
-#source("gradientInput.R") pending a shinyjqui fix
+source("gradientInput.R") 
 
-options(shiny.maxRequestSize=250*1024^2) 
+options(shiny.maxRequestSize=250*1024^2)  
 
 stat_sum_df <- function(fun, geom="point", ...) {
   stat_summary(fun.data = fun,  geom=geom,  ...)
@@ -65,13 +62,19 @@ stat_sum_single <- function(fun, geom="point", ...) {
   stat_summary(fun = fun,  geom=geom,  ...)
 }
 
-median.n <- function(x, nroundlabel = 2){
-  return(c(y = ifelse(median(x)<0,median(x),median(x)),
-           label = round(median(x),nroundlabel))) 
+
+median.n <- function(x, nroundlabel = 2, labeltrans =c("none","exp") ){
+  medianxvalue <-  median(x, na.rm = TRUE)
+  if(labeltrans=="none")  medianxlabel <-  round(medianxvalue,nroundlabel)
+  if(labeltrans=="exp")   medianxlabel <-  round(10^(medianxvalue),nroundlabel)
+  return(c(y = medianxvalue, label = medianxlabel )) 
 }
-mean.n <- function(x, nroundlabel = 2){
-  return(c(y = ifelse(mean(x)<0,mean(x),mean(x)),
-           label = round(mean(x),nroundlabel))) 
+
+mean.n <- function(x, nroundlabel = 2, labeltrans =c("none","exp") ){
+  meanxvalue <-  mean(x, na.rm = TRUE)
+  if(labeltrans=="none")  meanxlabel <-  round(meanxvalue,nroundlabel)
+  if(labeltrans=="exp")   meanxlabel <-  round(10^(meanxvalue),nroundlabel)
+  return(c(y = meanxvalue, label = meanxlabel )) 
 }
 
 give.n <- function(x, nposition = c("min","max","below","up"),
