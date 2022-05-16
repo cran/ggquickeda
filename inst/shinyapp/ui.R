@@ -18,6 +18,7 @@ fluidPage(
           ),
           fileInput("datafile", NULL, multiple = FALSE, accept = c("csv")),
           checkboxInput("stringasfactor", "Character Variables as Factors?", TRUE),
+          checkboxInput("ninetyninemissing", "Numeric Variables -99 as Missing?", FALSE),
           uiOutput("ycol"),
           checkboxInput("show_pairs", "Plot a matrix of all Y variables", value = FALSE),
           conditionalPanel(
@@ -217,7 +218,6 @@ fluidPage(
                              ), inline = TRUE),
               hr(),
               conditionalPanel(condition = "!input.show_pairs",
-                               
                        inline_ui(radioButtons("yaxisscale", "Y Axis scale:",
                                               c("Linear" = "lineary",
                                                 "Log10" = "logy"))),
@@ -235,7 +235,8 @@ fluidPage(
                        inline_ui(sliderInput("y_label_text_width", "N Characters to Wrap Y Labels:",
                                    min=5, max=100, value=c(25),step=1,width = '120px')),
                        inline_ui(sliderInput("x_label_text_width", "N Characters to Wrap X Labels:",
-                                   min=5, max=100, value=c(25),step=1,width = '120px')),
+                                   min=5, max=100, value=c(25),step=1,width = '120px'))
+              ),
               checkboxInput('rotateyticks', 'Rotate/Customize Y axis Labels ?', value = FALSE),
               conditionalPanel(condition = "input.rotateyticks" ,
                                inline_ui(
@@ -266,6 +267,7 @@ fluidPage(
                                  sliderInput("xticksvjust", "X axis labels vertical justification:",
                                              min=0, max=1, value=c(1),step=0.1, width='120px'))
               ),
+              conditionalPanel(condition = "!input.show_pairs",
               checkboxInput('customxticks', 'Custom X axis Ticks ?', value = FALSE),
               conditionalPanel(condition = "input.customxticks" , 
                                textInput("xaxisbreaks",label ="X axis major Breaks",
@@ -295,6 +297,7 @@ fluidPage(
                                textInput("yaxislabels",label ="Y axis Labels",
                                          value = as.character(paste("A","B","C" ,sep=",") )
                                )
+              )
               ),
               inline_ui(
                 checkboxInput('rmxaxisticks', 'Remove X axis ticks ?',value=FALSE,width='120px')),
@@ -304,7 +307,7 @@ fluidPage(
                 checkboxInput('rmyaxisticks', 'Remove Y axis ticks ?',value=FALSE,width='120px')),
               inline_ui(
                 checkboxInput('rmyaxislabels', 'Remove Y axis labels ?',value=FALSE,width='120px')),
-              
+              conditionalPanel(condition = "!input.show_pairs",
               checkboxInput('annotatelogticks', 'Add Log Tick Annotations ?', value = FALSE),
               conditionalPanel(condition = "input.annotatelogticks",
                                selectInput('logsides', label ='Log Tick Sides',
@@ -315,8 +318,8 @@ fluidPage(
                                            multiple=TRUE, selectize=TRUE,selected="l"),
                                checkboxInput('outsidelogticks', 'Log Ticks on the Outside?', value = FALSE)
               )
-              )# conditional on pairs is off
-            ),
+              )# if showpairs not selected
+            ), # end x/y axis tab
             tabPanel("Graph Size/Zoom", value = "graph_size_zoom",
               sliderInput("height", "Plot Height", min=1080/4, max=1080, value=480, animate = FALSE),
               conditionalPanel(condition = "!input.show_pairs",
@@ -659,76 +662,95 @@ fluidPage(
             tabPanel("Reference Lines/Target", value ="ref_line_target_options",
               h6("Adding annotations of reference lines is supported for numeric and categorical x/y positions.
                   Support for POSIXct x/y is limited at the moment."),
-              checkboxInput('identityline', 'Identity Line')    ,   
+              checkboxInput('identityline', 'Identity Line')    , 
+              conditionalPanel(condition = "input.identityline" , 
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",selectInput('identitylinetype','Line Type:',
+                                                                                  c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",sliderInput("identitylinesize", "Line Size:", min=0, max=4, value=c(1),step=0.1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("identitylinecol", "Line Color:", "black",showColour = "both",allowTransparent=TRUE,returnName=TRUE))
+              ),
               checkboxInput('horizontalzero', 'Horizontal Zero Line'),
-              checkboxInput('customvline1', 'Vertical Line 1'),
+              checkboxInput('customvline1', 'Add Vertical Line 1'),
               conditionalPanel(condition = "input.customvline1" , 
-                               numericInput("vline1",label = "",value = 1),
-                               colourpicker::colourInput("vlinecol1", "Line Color:", "gray",
-                                                         showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-                               div( actionButton("vlinecol1reset", "Reset Line Color"), style="text-align: right"),
-                               selectInput('vlinetype1','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank")),
-                               sliderInput("vlinesize1", "Line Size:", min=0, max=4, value=c(1),step=0.1)
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("vline1",label = "X value",value = 1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",selectInput('vlinetype1','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",sliderInput("vlinesize1", "Line Size:", min=0, max=4, value=c(1),step=0.1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("vlinecol1", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE)),
+                              div( actionButton("vlinecol1reset", "Reset Line Color"), style="text-align: right")
               ),
-              checkboxInput('customvline2', 'Vertical Line 2'),
+              checkboxInput('customvline2', 'Add Vertical Line 2'),
               conditionalPanel(condition = "input.customvline2" , 
-                               numericInput("vline2",label = "",value = 1) ,
-                               colourpicker::colourInput("vlinecol2", "Line Color:", "gray",
-                                                         showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-                               div( actionButton("vlinecol2reset", "Reset Line Color"), style="text-align: right"),
-                               selectInput('vlinetype2','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank")),
-                               sliderInput("vlinesize2", "Line Size:", min=0, max=4, value=c(1),step=0.1) 
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("vline2",label = "X value",value = 1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",selectInput('vlinetype2','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",sliderInput("vlinesize2", "Line Size:", min=0, max=4, value=c(1),step=0.1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("vlinecol2", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE)),
+                               div( actionButton("vlinecol2reset", "Reset Line Color"), style="text-align: right")
               ),
-              checkboxInput('customhline1', 'Horizontal Line 1'),
+              checkboxInput('customhline1', 'Add Horizontal Line 1'),
               conditionalPanel(condition = "input.customhline1" , 
-                               numericInput("hline1",label = "",value = 1),
-                               colourpicker::colourInput("hlinecol1", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-                               div( actionButton("hlinecol1reset", "Reset Line Color"), style="text-align: right"),
-                               selectInput('hlinetype1','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank")),
-                               sliderInput("hlinesize1", "Line Size:", min=0, max=4, value=c(1),step=0.1)
-                               
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("hline1",label = "Y value",value = 1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",selectInput('hlinetype1','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",sliderInput("hlinesize1", "Line Size:", min=0, max=4, value=c(1),step=0.1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("hlinecol1", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE)),
+                               div( actionButton("hlinecol1reset", "Reset Line Color"), style="text-align: right")
               ),
-              checkboxInput('customhline2', 'Horizontal Line 2'),
+              checkboxInput('customhline2', 'Add Horizontal Line 2'),
               conditionalPanel(condition = "input.customhline2" , 
-                               numericInput("hline2",label = "",value = 1),
-                               colourpicker::colourInput("hlinecol2", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE),
-                               div( actionButton("hlinecol2reset", "Reset Line Color"), style="text-align: right"),
-                               selectInput('hlinetype2','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank")),
-                               sliderInput("hlinesize2", "Line Size:", min=0, max=4, value=c(1),step=0.1) ),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("hline2",label = "Y value",value = 1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",selectInput('hlinetype2','Line Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"), width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",sliderInput("hlinesize2", "Line Size:", min=0, max=4, value=c(1),step=0.1, width='120px')),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("hlinecol2", "Line Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE)),
+                               div( actionButton("hlinecol2reset", "Reset Line Color"), style="text-align: right")
+              ),
               checkboxInput('showtarget', 'Add Target Window 1', value = FALSE) ,
               conditionalPanel(condition = "input.showtarget" , 
-                               numericInput("upperytarget1",label = "Upper Target Value 1:",
-                                            value = 1,min=NA,max=NA,width='50%'),
-                               numericInput("lowerytarget1",label = "Lower Target Value 1:",
-                                            value = 1,min=NA,max=NA,width='50%'),
-                               colourpicker::colourInput("targetcol1", "Target  Color 1:", "gray",showColour = "both",returnName=TRUE),
-                               sliderInput("targetopacity1", label = "Target Opacity 1:", min = 0, max = 1, value = 0.7, step = 0.05)
-              ),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("upperytarget1",label = "Upper Value:",
+                                            value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("lowerytarget1",label = "Lower Value:",
+                                            value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("targetcol1", "Target 1  Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE))
+                               ),
               checkboxInput('showtarget2', 'Add Target Window 2', value = FALSE) ,
-              
               conditionalPanel(condition = "input.showtarget2" , 
-                               numericInput("upperytarget2",label = "Upper Target Value 2:",
-                                            value = 1,min=NA,max=NA,width='50%'),
-                               numericInput("lowerytarget2",label = "Lower Target Value 2:",
-                                            value = 1,min=NA,max=NA,width='50%'),
-                               colourpicker::colourInput("targetcol2", "Target  Color 2:", "gray",showColour = "both",returnName=TRUE),
-                               sliderInput("targetopacity2", label = "Target Opacity 2", min = 0, max = 1, value = 0.7, step = 0.05)
-              ),
-              checkboxInput('showtargettext', 'Add Target Text', value = FALSE),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("upperytarget2",label = "Upper Value:",
+                                           value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",numericInput("lowerytarget2",label = "Lower Value:",
+                                           value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("targetcol2", "Target 2  Color:", "gray",showColour = "both",allowTransparent=TRUE,returnName=TRUE))
+                               ),
+              checkboxInput('showtargettext', 'Add Custom Text', value = FALSE),
               conditionalPanel(condition = "input.showtargettext" ,
-                               textInput('targettext', 'Target Text', value = "Target: XX-XXX µg/mL"),
-                               sliderInput("targettextsize", "Target Text Size:", min=1, max=10, value=c(5),step=0.1),
-                               colourpicker::colourInput("targettextcol", "Target Text Color:", "blue",showColour = "both"),
-                               sliderInput("targettextvjust", "Target Text Vertical Justification:", min=0, max=1, value=c(1),step=0.1),
-                               sliderInput("targettexthjust", "Target Text Horizontal Justification:", min=0, max=1, value=c(0),step=0.1),
-                               numericInput("targettextxpos",label = "Target Text X Position",
-                                            value = 1,min=NA,max=NA,width='50%'),
-                               numericInput("targettextypos",label = "Target Text Y Position",
-                                            value = 1,min=NA,max=NA,width='50%')
+                               div(style="display: inline-block;vertical-align:top; width: 240px;",
+                                   textInput('targettext', 'Text', value = "Target: XX-XXX µg/mL")),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   numericInput("targettextxpos",label = "Text X Value",value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   numericInput("targettextypos",label = "Text Y Value",value = 1,min=NA,max=NA)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   sliderInput("targettextsize", "Text Size:", min=1, max=10, value=c(5),step=0.1)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   sliderInput("targettextvjust", "Vertical Justification:", min=0, max=1, value=c(1),step=0.1)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   sliderInput("targettexthjust", "Horizontal Justification:", min=0, max=1, value=c(0),step=0.1)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("targettextcol", "Target Text Color:", "#0000FF80",allowTransparent=TRUE,showColour = "both")),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",
+                                   colourpicker::colourInput("targettextfill", "Target Label Fill:", "#0000FF80",allowTransparent=TRUE,showColour = "both")),
+                               radioButtons("customtextgeom", "Geom:",c("text" = "text","label"= "label",
+                                                                        "auto text repel" = "text_repel",
+                                                                        "auto label repel" = "label_repel"),selected = "text",inline = TRUE),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",radioButtons("customtext_xposition", "Force Custom Text X at Edges:",
+                                            c("use provided X","min" = "min","max" = "max"), inline = TRUE)),
+                               div(style="display: inline-block;vertical-align:top; width: 120px;",radioButtons("customtext_yposition", "Force Custom Text Y at Edges:",
+                                            c("use provided Y","min" = "min","max" = "max"), inline = TRUE))
               )
-              
-              
-              
             ),
             tabPanel(
               "Themes and Color/other Scales Options", value = "themes_color_other",
@@ -991,7 +1013,7 @@ fluidPage(
                             "Update plot automatically", value = TRUE)
             ),
             actionButton("update_plot_btn", "Update plot",
-                         icon = icon("refresh"))
+                         icon = icon("sync"))
           )),
           shinyjs::hidden(div(
             id = "save_plot_area",
@@ -1021,10 +1043,12 @@ fluidPage(
                        value = "pairs_plot",
                        fluidRow(
                          column (3,
-                                 uiOutput("colourpairs")),
+                                 uiOutput("colourpairs"),
+                                 uiOutput("grouppairs")),
                          column (3,
                                  radioButtons("pairslowercont", "Lower Panel Continuous:",
-                                              c("Smooth"  = "smooth",
+                                              c("Smooth"  = "smooth_loess",
+                                                "Linear Fit"  = "smooth_lm",
                                                 "Density"  = "density",
                                                 "Points"  = "points",
                                                 "Correlation"  = "cor"
@@ -1032,6 +1056,11 @@ fluidPage(
                                               ,inline=TRUE),
                                    sliderInput("sizelowerpairs", "Cont (point/line/text) Size:",
                                                min=0, max=6, value=c(1), step=0.01),
+                                 conditionalPanel(
+                                   " input.pairslowercont == 'smooth_loess' |
+                                     input.pairslowercont == 'smooth_lm'",
+                                   checkboxInput('selowerpairs', 'Show SE around Smooth/Linear Fit?')
+                                   ),
                                  radioButtons("pairslowerdisc", "Lower Panel Discrete:",
                                               c("Facet Bars"  = "facetbar",
                                                 "Count" = "count",
@@ -1050,9 +1079,14 @@ fluidPage(
                          column (3,
                                  radioButtons("pairsdiagcontinuous", "Diagonal Panel Continuous:",
                                               c("Density"  = "densityDiag",
+                                                "Bars"  = "barDiag",
                                                 "Blank"  = "blankDiag"
                                               )
                                               ,inline=TRUE),
+                                 conditionalPanel(
+                                   " input.pairsdiagcontinuous != 'blankDiag' ",
+                                 checkboxInput('densitylinepairs', 'Show Density/Bars Lines?',value = TRUE)
+                                 ),
                                  radioButtons("pairsdiagdiscrete", "Diagonal Panel Discrete:",
                                               c("Bars"  = "barDiag",
                                                 "Count" = "countDiag",
@@ -1060,6 +1094,11 @@ fluidPage(
                                                 "Blank"  = "blankDiag"
                                               )
                                               ,inline=TRUE),
+                                 conditionalPanel(
+                                   " input.pairsdiagdiscrete == 'barDiag' |
+                                     input.pairsdiagdiscrete == 'countDiag'",
+                                   checkboxInput('barslinepairs', 'Show Bars/Count Lines?')
+                                 ),
                                  sliderInput("alphadiagpairs", "Diagonal Panel Transparency:",
                                              min = 0 ,max = 1, value = c(0.2), step = 0.01
                                  )
@@ -1069,11 +1108,17 @@ fluidPage(
                                               c("Correlation"  = "cor",
                                                 "Density"  = "density",
                                                 "Points"  = "points",
-                                                "Smooth"  = "smooth"
+                                                "Smooth"  = "smooth_loess",
+                                                "Linear Fit"  = "smooth_lm"
                                               )
                                               ,inline=TRUE),
                                    sliderInput("sizeupperpairs", "Cont (point/line/text) Size:",
                                                min=0, max=6, value=c(6), step=0.01),
+                                 conditionalPanel(
+                                   " input.pairsuppercont == 'smooth_loess' |
+                                     input.pairsuppercont == 'smooth_lm'",
+                                   checkboxInput('seupperpairs', 'Show SE around Smooth/Linear Fit?')
+                                 ),
                                  radioButtons("pairsupperdisc", "Upper Panel Discrete:",
                                               c("Facet Bars"  = "facetbar",
                                                 "Count" = "count",
@@ -1253,7 +1298,10 @@ fluidPage(
                   column (3, uiOutput("facet_col"),uiOutput("facet_row"),uiOutput("facet_row_extra")),
                   column (3, uiOutput("pointshape") ,uiOutput("linetype")),
                   column (3, uiOutput("pointsize"),uiOutput("fill")),
-                  column (12, h6("Make sure not to choose a variable that is in the y variable(s) list otherwise you will get an error Variable not found. These variables are stacked and become yvars and yvalues.This ensures that colour/group/etc. are kept intact when you apply a new filter or recode a variable. When you combine variables all mappings will be updated so you can choose the newly formed variable and as such the previous state will be lost." ))
+                  column (12, h6("Make sure not to choose a variable that is in the y or x variable(s) list otherwise you will get an error Variable not found.
+                                 These variables are stacked and become yvars/yvalues and xvars/xvalues.
+                                 This ensures that colour/group/etc. are kept intact when you apply a new filter or recode a variable.
+                                 When you combine variables all mappings will be reset so you can choose the newly formed variable and as such the previous state will be lost." ))
                   
                 )
               ),#tabpanel
@@ -1280,8 +1328,37 @@ fluidPage(
                                                 showColour = "both",allowTransparent=TRUE,
                                                 returnName=TRUE)
                     ),
-                    sliderInput("boxplotoutlieralpha", "Outlier Transparency:", min=0, max=1, value=c(0.5),step=0.01),
-                    sliderInput("boxplotoutliersize", "Outliers Size:", min=0, max=6, value=c(1),step=0.1),
+                    inline_ui(sliderInput("boxplotoutlieralpha", "Outlier Transparency:", min=0, max=1, value=c(0.5),step=0.01,width='120px')),
+                    inline_ui(sliderInput("boxplotoutliersize", "Outliers Size:", min=0, max=6, value=c(1),step=0.1,width='120px')),
+                    selectInput('boxplotoutliershape','Outliers Shape:',
+                               c("square open"           ,
+                                 "circle open"           ,
+                                 "triangle open"         ,
+                                 "plus"                  ,
+                                 "cross"                 ,
+                                 "asterisk"              ,
+                                 "diamond open"          ,
+                                 "triangle down open"    ,
+                                 "square cross"          ,
+                                 "diamond plus"          ,
+                                 "circle plus"           ,
+                                 "star"                  ,
+                                 "square plus"           ,
+                                 "circle cross"          ,
+                                 "square triangle"       ,
+                                 "square"                ,
+                                 "circle small"          ,
+                                 "triangle"              ,
+                                 "diamond"               ,
+                                 "circle"                ,
+                                 "bullet"                ,
+                                 "circle filled"         ,
+                                 "square filled"         ,
+                                 "diamond filled"        ,
+                                 "triangle filled"       ,
+                                 "triangle down filled"  ,
+                                 "blank"),
+                               selected = "circle filled"),
                     inline_ui(numericInput("bxp.width",label = "Dodge width",
                                            value = 0.75, min = 0, step = 0.1, width='120px')),
                     inline_ui(radioButtons("bxp.preserve", "Dodge preserve style",
@@ -1386,9 +1463,17 @@ fluidPage(
                                              "densityalpha",
                                              "Density Fill Transparency:",
                                              min = 0 ,max = 1, value = c(0.2), step = 0.01
-                                           )
-                          )
-                  )
+                                           ),
+                          checkboxInput('densityignorelinetype', 'Ignore Mapped Linetype')
+                          ),
+                          conditionalPanel("input.densityaddition!='None' &&  input.densityignorelinetype",
+                          selectInput('densitylinetypes','Line(s) Type:',c("solid","dashed", "dotted", "dotdash", "longdash", "twodash","blank"))
+                          ),
+                          conditionalPanel(" input.densityaddition!= 'None' ",
+                            sliderInput("densitylinesize", "Line(s) Size:", min=0, max=4, value=c(1.5),step=0.1)
+                          ),
+                          
+                  )#333
                 )),
               tabPanel("Barplots",
                 value = "barplots",
@@ -1396,11 +1481,13 @@ fluidPage(
                   column (3,
                     checkboxInput('barplotaddition', 'Add a Barplot ?', value = TRUE),
                     conditionalPanel("input.barplotaddition",
-                                     inline_ui(selectInput("positionbar", label = "Bar positioning:",
+                                     inline_ui(selectInput("positionbar",
+                                                           label = "Bar positioning:",
                                 choices = c("Stacked"="position_stack(vjust = 0.5)",
                                             "Side By Side"="position_dodge(width = 0.9)",
                                             "Sum to 100%"="position_fill(vjust = 0.5)"),
-                                selected = "position_stack(vjust = 0.5)") ),
+                                selected = "position_stack(vjust = 0.5)",
+                                width = '90%') ),
                     checkboxInput('barplotflip', 'Flip the Barplot ?',value = FALSE)
                     )
                   ),
@@ -2445,7 +2532,7 @@ fluidPage(
                                  "Update table automatically", value = TRUE)
                  ),
                  actionButton("update_table_btn", "Update table",
-                              icon = icon("refresh")),
+                              icon = icon("sync")),
                  fluidRow(
                    column(3,
                           div(id="quick_relabel_placeholder"),

@@ -1,3 +1,17 @@
+# ggquickeda 0.2.2
+* fixed bug in linear model equation where slope and intercept values were switched
+* fixed bug where flip barplot was not working (auto flipped barplot already supported)
+* added group aesthetic and other enhancements for pairs plot
+* bug fixes for expansion, zooming with user input (plots with only x variable(s) or only y variable(s))
+* restored target window annotations to work with factor/character x axis
+* added the possibility to change the size and linetype of density plots
+* added the possibility to choose the shape of boxplot outlier points
+* added options for x and y scale tick formatting are now visible when pairs plot are active
+* added options for identity line and for placement of custom/target text at plot edges
+* added checkbox to recode numeric variables with -99 to missing
+* removed ggstance dependency by adding needed positions to global.r
+* fixed typos in Visualizing Summary Data vignette data labels
+
 # ggquickeda 0.2.1
 * added a new method for factor reordering min/max difference
 * added the mean +/- multiples of standard deviations summary using the `mean_sdl` function

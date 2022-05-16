@@ -5,9 +5,10 @@ account: samer.mouksassi
 server: rstudio.studyexplorer.io
 hostUrl: https://rstudio.studyexplorer.io/__api__
 appId: 1
-bundleId: 539
+bundleId: 560
 url: https://rstudio.studyexplorer.io/content/1/
-when: 1612454744.20947
+when: 1642576447.8129
+lastSyncTime: 1642576447.8129
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: img/snapshot1.gif|img/snapshot4.1.png

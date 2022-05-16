@@ -325,16 +325,31 @@ function(input, output, session) {
   # Load user data
   observeEvent(input$datafile, {
     file <- input$datafile$datapath
-    values$maindata <- read.csv(file, na.strings = c("NA","."), stringsAsFactors = input$stringasfactor,
+    na.strings <-  c("NA",".")
+    if(input$ninetyninemissing){
+    na.strings <-  c("NA",".",-99)
+    }
+    
+    values$maindata <- read.csv(file, na.strings = na.strings, stringsAsFactors = input$stringasfactor,
                                 sep = input$fileseparator)
+    # if(input$ninetyninemissing){
+    #   tempdata <-  values$maindata
+    #   NUMCOLUMNS <- sapply(tempdata , function(x) is.numeric(x))
+    #   NAMESTOKEEP <- names(tempdata ) [ NUMCOLUMNS ]
+    #   for (i in 1:length(NAMESTOKEEP) ) {
+    #     varname<- NAMESTOKEEP[i]
+    #     tempdata[,varname] <-  ifelse(tempdata[,varname] ==-99,NA,tempdata[,varname] )
+    #   }
+    #   values$maindata <- tempdata
+    # }
   })
   
   # Load sample dataset
   observeEvent(input$sample_data_btn, {
     file <- "data/sample_data.csv"
     values$maindata <- read.csv(file, na.strings = c("NA","."),
-                                stringsAsFactors = input$stringasfactor,
-                                sep = input$fileseparator)
+                                stringsAsFactors = TRUE,
+                                sep = ",")
     values$maindata[,"time_DT"] <- as.POSIXct(values$maindata[,"Time"],origin ="01-01-1970",format="%H")
     mockFileUpload("Sample Data")
   })
@@ -542,59 +557,6 @@ function(input, output, session) {
     }
   })
 
-  # observe({
-  #   if(!input$show_pairs &&
-  #      !is.null(input$x) &&  
-  #       is.null(input$y) && 
-  #       !is.numeric(finalplotdata()[,"xvalues"]) ) {
-  #    updateNumericInput(session, "xexpansion_l_add", value = 0.6)
-  #    updateNumericInput(session, "xexpansion_r_add", value = 0.6) 
-  #   } else if(!input$show_pairs &&
-  #             is.null(input$x) &&  
-  #             !is.null(input$y) && 
-  #             !is.numeric(finalplotdata()[,"yvalues"]) ){
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0.6)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0.6) 
-  #   }  else if(!input$show_pairs &&
-  #              !is.null(input$x) &&  
-  #              is.null(input$y) && 
-  #              is.numeric(finalplotdata()[,"xvalues"]) ){
-  #     updateNumericInput(session, "xexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "xexpansion_r_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0) 
-  #   } else if(!input$show_pairs &&
-  #            is.null(input$x) &&  
-  #            !is.null(input$y) && 
-  #            is.numeric(finalplotdata()[,"yvalues"]) ){
-  #     updateNumericInput(session, "xexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "xexpansion_r_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0) 
-  #   } else if(!input$show_pairs &&
-  #             !is.null(input$x) &&  
-  #             is.null(input$y) && 
-  #             !is.numeric(finalplotdata()[,"xvalues"]) ){
-  #     updateNumericInput(session, "xexpansion_l_add", value = 0.6)
-  #     updateNumericInput(session, "xexpansion_r_add", value = 0.6)
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0)
-  #   } else if(!input$show_pairs &&
-  #             is.null(input$x) &&  
-  #             !is.null(input$y) && 
-  #             !is.numeric(finalplotdata()[,"yvalues"]) ){
-  #     updateNumericInput(session, "xexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "xexpansion_r_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0.6)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0.6) 
-  #   } else{
-  #     updateNumericInput(session, "xexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "xexpansion_r_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_l_add", value = 0)
-  #     updateNumericInput(session, "yexpansion_r_add", value = 0) 
-  #   }
-  #   })
-  
   observe({
   if   (((input$colorin!="None" &&
        input$colorin %in% names(finalplotdata()) &&
@@ -606,8 +568,8 @@ function(input, output, session) {
         length(unique(finalplotdata()[,input$fillin])) > 20) ) 
        ) {
     updateRadioButtons(session, "themecolorswitcher", selected="themeggplot")
-    updateTabsetPanel(session, "sidebar_upper_menus", selected="sidebar_Graph_Options")
-    updateTabsetPanel(session, "graphicaloptions", selected="themes_color_other")
+    #updateTabsetPanel(session, "sidebar_upper_menus", selected="sidebar_Graph_Options")
+    #updateTabsetPanel(session, "graphicaloptions", selected="themes_color_other")
     updateSliderInput(session, "nusercol",
                       value = length(unique(finalplotdata()[,input$colorin])),
                       max = length(unique(finalplotdata()[,input$colorin]))+5)
@@ -624,8 +586,6 @@ function(input, output, session) {
                length(unique(finalplotdata()[,input$fillin])) <= 20) ) ) 
              ) {
     updateRadioButtons(session, "themecolorswitcher", selected="themetableau20")
-    updateTabsetPanel(session, "sidebar_upper_menus", selected="sidebar_Graph_Options")
-    updateTabsetPanel(session, "graphicaloptions", selected="themes_color_other")
     updateSliderInput(session, "nusercol",
                       value = length(unique(finalplotdata()[,input$colorin])),
                       max = 30)
@@ -634,6 +594,25 @@ function(input, output, session) {
   }
   })#zzz 
 
+  observe({ if(input$histogramaddition=="None"){
+  updateRadioButtons(session, "densityaddition",
+                     choices = c("Density" = "Density",
+                       "Counts" = "Counts",
+                       "Scaled Density" = "Scaled Density",
+                       "None" = "None"))
+    
+  }
+  })
+  observe({ if(input$histogramaddition!="None" && input$histogrambinwidth== "userbinwidth"){
+    updateRadioButtons(session, "densityaddition",
+                       choices = c("Density" = "Density",
+                                   "Counts" = "Counts",
+                                   "Match Histo Count"="histocount",
+                                   "Scaled Density" = "Scaled Density",
+                                   "None" = "None"))
+    
+  }
+  })
   
   observe({
     if( (is.null(input$y) && !is.numeric(finalplotdata()[,"xvalues"] )) ||
@@ -715,30 +694,7 @@ function(input, output, session) {
                                                              "Pretty X" ="logxformat2"))
     }
   })
-  
-  # observe({
-  #   if (length(input$y)>1) {
-  #     updateRadioButtons(session, "yaxiszoom", choices = c("None" = "noyzoom",
-  #                                                          "User" = "useryzoom"),inline=TRUE)
-  #   }
-  #   if (length(input$y)<2) {
-  #     updateRadioButtons(session, "yaxiszoom", choices = c("None" = "noyzoom",
-  #                                                          "Automatic" = "automaticyzoom",
-  #                                                          "User" = "useryzoom"),inline=TRUE)
-  #   }
-  # })
-  
-  # observe({
-  #   if (length(input$x)>1 ) {
-  #     updateRadioButtons(session, "xaxiszoom", choices = c("None" = "noxzoom",
-  #                                                          "User" = "userxzoom"),inline=TRUE)
-  #   }
-  #   if (length(input$x)<2  ) {
-  #     updateRadioButtons(session, "xaxiszoom", choices = c("None" = "noxzoom",
-  #                                                          "Automatic" = "automaticxzoom",
-  #                                                          "User" = "userxzoom"),inline=TRUE)
-  #   }
-  # })
+
 
   outputOptions(output, "ycol", suspendWhenHidden=FALSE)
   outputOptions(output, "xcol", suspendWhenHidden=FALSE)
@@ -1674,7 +1630,7 @@ function(input, output, session) {
         df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) sum(x[!is.na(x)]))
       }
       if(input$functionordervariable=="Min-Max Difference" )  {
-        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) {max(x) - min(x)})
+        df[,varname]   <- reorder( df[,varname],variabletoorderby,  FUN=function(x) {abs(max(x) - min(x))})
       }
       if(input$reverseorder )  {
         df[,varname] <- factor( df[,varname], levels=rev(levels( df[,varname])))
@@ -2048,28 +2004,22 @@ function(input, output, session) {
   output$lowerx <- renderUI({
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
-    if (is.null(df)  ||  is.null(input$x) || is.null(df[,"xvalues"]) ) return(NULL)
-    if (all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] )) || 
-        (length(df[,"xvalues"][!is.na( df[,"xvalues"])] ) <= 0)
-        ) return(NULL)
-      xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
-      xmin <- min(xvalues)
+    xmin <- NA
+    if (!all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] ))){
+      xmin <- min(df[,"xvalues"],na.rm = TRUE)}
       if(input$xaxisscale=="logx" && xmin<=0) xmin <- 0.01
       numericInput("lowerxin",label = "Lower X Limit", 
-                   value = xmin, min=NA, max=NA, width='100%') 
-
+                   value = xmin, min=NA, max=NA, width='50%')
   })
   output$upperx <- renderUI({
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
-    if (is.null(df)  ||  is.null(input$x) || is.null(df[,"xvalues"]) ) return(NULL)
-    if (all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] )) || 
-        (length(df[,"xvalues"][!is.na( df[,"xvalues"])] ) <= 0)
-    ) return(NULL)
-    xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
-    xmax <- max(xvalues)
+    xmax <- NA
+    if (!all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] ))){
+      xmax <- max(df[,"xvalues"],na.rm = TRUE)}
     if(input$xaxisscale=="logx"&& xmax<=0) xmax <- 0.1
-    numericInput("upperxin",label = "Upper X Limit",value = xmax,min=NA,max=NA,width='100%')
+    numericInput("upperxin",label = "Upper X Limit",
+                 value = xmax,min=NA,max=NA,width='50%')
   })
   outputOptions(output, "lowerx", suspendWhenHidden=FALSE)
   outputOptions(output, "upperx", suspendWhenHidden=FALSE)
@@ -2096,26 +2046,19 @@ function(input, output, session) {
   output$lowery <- renderUI({
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
-    if ( is.null(df) || is.null(input$y) || is.null(df[,"yvalues"]) ) return(NULL)
-    if (all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] )) || 
-        (length(df[,"yvalues"][!is.na( df[,"yvalues"])] ) <= 0)
-    ) return(NULL)
-    yvalues <- df[,"yvalues"][!is.na( df[,"yvalues"])]
-    ymin <- min(yvalues)
+    ymin <- NA
+    if (!all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] ))){
+      ymin <- min(df[,"yvalues"],na.rm = TRUE)}
     if(input$yaxisscale=="logy" && ymin<=0) ymin <- 0.01
     numericInput("loweryin",label = "Lower Y Limit",
                  value = ymin,min=NA,max=NA,width='50%')
   })
-  
   output$uppery <-  renderUI({
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
-    if ( is.null(df) || is.null(input$y) || is.null(df[,"yvalues"]) ) return(NULL)
-    if (all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] )) || 
-        (length(df[,"yvalues"][!is.na( df[,"yvalues"])] ) <= 0)
-    ) return(NULL)
-    yvalues <- df[,"yvalues"][!is.na( df[,"yvalues"])]
-    ymax <- max(yvalues)
+    ymax <- NA
+    if (!all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] ))){
+      ymax <- max(df[,"yvalues"],na.rm = TRUE)}
     if(input$yaxisscale=="logy" && ymax<=0) ymax <- 0.1
     numericInput("upperyin",label = "Upper Y Limit",
                  value = ymax,min=NA,max=NA,width='50%')
@@ -2222,10 +2165,29 @@ function(input, output, session) {
     }
     selectInput("groupin", "Group By:",items)
   })
+  output$grouppairs <- renderUI({
+    df <-values$maindata
+    validate(need(!is.null(df), "Please select a data set"))
+    items=names(df)
+    names(items)=items
+    items= c("None",items)
+    if ( !is.null(input$y) ){
+      items = c(items, "yvars","yvalues") 
+    }
+    if ( !is.null(input$x) ){
+      items = c(items, "xvars","xvalues") 
+    }
+    if (!is.null(input$pastevarin) && length(input$pastevarin) >1 ){
+      nameofcombinedvariables<- paste(as.character(input$pastevarin),collapse="_",sep="") 
+      items= c(items,nameofcombinedvariables)
+    }
+    selectInput("grouppairsin", "Group By:",items)
+  })
   outputOptions(output, "colour", suspendWhenHidden=FALSE)
   outputOptions(output, "colourpairs", suspendWhenHidden=FALSE)
   outputOptions(output, "group", suspendWhenHidden=FALSE)
-
+  outputOptions(output, "grouppairs", suspendWhenHidden=FALSE)
+  
   output$facet_col <- renderUI({
     df <-values$maindata
     validate(need(!is.null(df), "Please select a data set"))
@@ -2876,18 +2838,20 @@ function(input, output, session) {
         
       }
       # Matrix of pairs of plots of all the Y variables
-      if (input$colorpairsin != 'None') {
+      if (input$colorpairsin != 'None' && input$grouppairsin == 'None') {
         ggpairsmapping = ggplot2::aes_string(color = input$colorpairsin)
       }
-      if (input$colorpairsin == 'None') {
+      if (input$colorpairsin == 'None' && input$grouppairsin == 'None') {
         ggpairsmapping = NULL
       }
-# 
-#       GGally::wrap("cor",
-#                    size = 5,
-#                    align_percent = 0.8,
-#                    alpha = 1)
-      
+      if (input$colorpairsin == 'None' && input$grouppairsin != 'None') {
+        ggpairsmapping = ggplot2::aes_string(group = input$grouppairsin)
+      }
+      if (input$colorpairsin != 'None' && input$grouppairsin != 'None') {
+        ggpairsmapping = ggplot2::aes_string(color = input$colorpairsin,
+                                             group = input$grouppairsin)
+      }
+
         p <- sourceable(
           GGally::ggpairs(
             plotdata,
@@ -2896,16 +2860,23 @@ function(input, output, session) {
             diag = list(
               continuous = GGally::wrap(input$pairsdiagcontinuous,
                                         alpha = input$alphadiagpairs,
-                                        linetype = ifelse(input$colorpairsin == 'None',1,0)),
+                                        linetype = ifelse(input$densitylinepairs,1,0),
+                                        color=ifelse(input$densitylinepairs &
+                                         input$pairsdiagcontinuous%in%c("barDiag","densityDiag"),
+                                                     "black","transparent")
+                                        ),
               discrete = GGally::wrap(input$pairsdiagdiscrete,
                                       alpha = input$alphadiagpairs,
-                                      linetype = ifelse(input$colorpairsin == 'None',1,0))
+                                      linetype = ifelse(input$barslinepairs,1,0),
+                                      color=ifelse(input$barslinepairs,"black","transparent"))
             ),
             lower = list(
               continuous = GGally::wrap(input$pairslowercont,
                                         alpha = ifelse(input$pairslowercont == 'cor',1,
                                                        input$alphalowerpairs),
-                                        size = input$sizelowerpairs),
+                                        size = input$sizelowerpairs,
+                                        se= input$selowerpairs
+                                        ),
               combo = GGally::wrap(input$pairslowercombo,
                                    alpha = input$alphalowerpairs,
                                    position = "dodge2"),
@@ -2916,7 +2887,8 @@ function(input, output, session) {
               continuous = GGally::wrap(input$pairsuppercont,
                                         alpha = ifelse(input$pairsuppercont == 'cor',1,
                                                        input$alphaupperpairs),
-                                        size = input$sizeupperpairs),
+                                        size = input$sizeupperpairs,
+                                        se= input$seupperpairs),
               combo = GGally::wrap(input$pairsuppercombo,
                                    alpha = input$alphaupperpairs,
                                    position = "dodge2"),
@@ -3048,28 +3020,41 @@ function(input, output, session) {
                                     binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )},
                                     position =input$positionhistogram)
           }
-        }  
-       
-        if ( input$densityaddition=="Density"){
-          p <- p + geom_density(aes(y=..density..),
+        } 
+        
+        if (input$densityaddition=="Density")  densitytype <- "..density.."
+        if (input$densityaddition=="Scaled Density")  densitytype <- "..scaled.."
+        if (input$densityaddition=="Counts")  densitytype <- "..count.."
+
+       if(!input$densityignorelinetype && !input$densityaddition%in% c("None","histocount")) {
+           p <- p + geom_density(aes_string(y=densitytype),
+                                 alpha=input$densityalpha,
+                                 adjust=input$densityadjust,
+                                 size = input$densitylinesize)
+       }
+        if(input$densityignorelinetype && !input$densityaddition%in% c("None","histocount")) {
+          p <- p + geom_density(aes_string(binwidth=input$histobinwidth,
+                                           y=densitytype),
                                 alpha=input$densityalpha,
-                                adjust=input$densityadjust)
+                                adjust=input$densityadjust,
+                                linetype = input$densitylinetypes,
+                                size = input$densitylinesize)
         }
-        if ( input$densityaddition=="Scaled Density"){
-          p <- p + geom_density(aes(y=..scaled..),
-                                alpha=input$densityalpha,
-                                adjust=input$densityadjust)
-        }
-        if ( input$densityaddition=="Counts"){
-          p <- p + geom_density(aes(y=..count..),
-                                alpha=input$densityalpha,
-                                adjust=input$densityadjust)
-        }
-        if ( input$densityaddition=="histocount"){
+
+        if(!input$densityignorelinetype && input$densityaddition == "histocount" ) {
           p <- p + geom_density(aes(binwidth=input$histobinwidth, y=binwidth*..count..),
                                 alpha=input$densityalpha,
-                                adjust=input$densityadjust)
+                                adjust=input$densityadjust,
+                                size = input$densitylinesize)
         }
+        if(input$densityignorelinetype && input$densityaddition=="histocount") {
+          p <- p + geom_density(aes(binwidth=input$histobinwidth, y=binwidth*..count..),
+                                alpha=input$densityalpha,
+                                adjust=input$densityadjust,
+                                linetype = input$densitylinetypes,
+                                size = input$densitylinesize)
+        }
+
 
         ylabeltext <- ""
         if(input$histogramaddition!="None"){
@@ -3466,12 +3451,7 @@ function(input, output, session) {
                                   show.legend = input$barplotlabellegend,
                                   colour = input$barplotlabelcolor)
             }
-                         
-            
-            if ( input$barplotflip){
-              p <- p +
-                coord_flip()
-            }
+
           }
           if ( input$barplotaddition && input$barplotpercent){
             p <- p+  
@@ -3525,10 +3505,6 @@ function(input, output, session) {
               }
             }
 
-            if ( input$barplotflip){
-              p <- p +
-                coord_flip()
-            }
           }
         }# not numeric yvalues no x
       } # is null x univariate y plots ends  
@@ -3539,25 +3515,38 @@ function(input, output, session) {
       p <- sourceable(ggplot(plotdata, aes_string(x="xvalues", y="yvalues")))
       p <- p # helps in initializing the scales
       
+      if (!input$custom_scale_y_expansion) expansionobjy <- waiver()
+      if (!input$custom_scale_x_expansion) expansionobjx <- waiver()
+      if (input$custom_scale_y_expansion) {
+        expansionobjy <- expansion(mult = c(input$yexpansion_l_mult,
+                                            input$yexpansion_r_mult),
+                                   add  = c(input$yexpansion_l_add,
+                                            input$yexpansion_r_add))
+      }
+      
+      if (input$custom_scale_x_expansion) {
+        expansionobjx <- expansion(mult = c(input$xexpansion_l_mult,
+                                            input$xexpansion_r_mult),
+                                   add  = c(input$xexpansion_l_add,
+                                            input$xexpansion_r_add)) 
+      }
+      
       if (input$showtarget)  {
         if (is.numeric( plotdata[,"yvalues"] ) ) {
           
           if (is.factor(   plotdata[,"xvalues"] ) |
               is.character(plotdata[,"xvalues"])
               ){ 
-            p <-   p   + scale_x_discrete(expand = expansion(mult = c(input$xexpansion_l_mult,
-                                                                      input$xexpansion_r_mult),
-                                                             add  = c(input$xexpansion_l_add,
-                                                                      input$xexpansion_r_add))
-            ) }
+            p <-   p   + scale_x_discrete(labels = label_wrap(input$x_label_text_width),
+                                          expand = expansionobjx) 
+            }
 
           if (!inherits(plotdata[,"xvalues"], "POSIXct")) {
             p <-   p   +
               annotate("rect", xmin = -Inf, xmax = Inf,
                        ymin = input$lowerytarget1,
                        ymax = input$upperytarget1,
-                       fill = input$targetcol1,
-                       alpha = input$targetopacity1)
+                       fill = input$targetcol1)
           }
           if (inherits(plotdata[,"xvalues"], "POSIXct")) {
             p <-   p   +
@@ -3566,8 +3555,7 @@ function(input, output, session) {
                        xmax = max(plotdata[,"xvalues"],na.rm = TRUE),
                        ymin = input$lowerytarget1,
                        ymax = input$upperytarget1,
-                       fill = input$targetcol1,
-                       alpha = input$targetopacity1)
+                       fill = input$targetcol1)
           }
         }
       } 
@@ -3576,11 +3564,9 @@ function(input, output, session) {
           if (is.factor(   plotdata[,"xvalues"] ) |
               is.character(plotdata[,"xvalues"])
           ){
-            p <-   p   + scale_x_discrete(expand = expansion(mult = c(input$xexpansion_l_mult,
-                                                                      input$xexpansion_r_mult),
-                                                             add  = c(input$xexpansion_l_add,
-                                                                      input$xexpansion_r_add))
-            ) }
+            p <-   p   + scale_x_discrete(labels = label_wrap(input$x_label_text_width),
+                                          expand = expansionobjx) 
+          }
           
           if (!inherits(plotdata[,"xvalues"], "POSIXct")) {
             p <-   p   +
@@ -3588,8 +3574,7 @@ function(input, output, session) {
                        xmax = Inf,
                        ymin = input$lowerytarget2,
                        ymax = input$upperytarget2,
-                       fill = input$targetcol2,
-                       alpha = input$targetopacity2)
+                       fill = input$targetcol2)
           }
           if (inherits(plotdata[,"xvalues"], "POSIXct")) {
             p <-   p   +
@@ -3598,8 +3583,7 @@ function(input, output, session) {
                        xmax = max(plotdata[,"xvalues"],na.rm = TRUE),
                        ymin = input$lowerytarget2,
                        ymax = input$upperytarget2,
-                       fill = input$targetcol2,
-                       alpha = input$targetopacity2)
+                       fill = input$targetcol2)
           }
         } 
       } 
@@ -3834,6 +3818,7 @@ function(input, output, session) {
                 alpha = input$boxplotalpha,
                 outlier.alpha = input$boxplotoutlieralpha,
                 outlier.size = input$boxplotoutliersize,
+                outlier.shape = ifelse(input$boxplotoutliersize==0,NA,translate_shape_string(input$boxplotoutliershape)),
                 position = eval(parse(text=positionboxplot))
               )
             }
@@ -3848,6 +3833,7 @@ function(input, output, session) {
                 alpha = input$boxplotalpha,
                 outlier.alpha = input$boxplotoutlieralpha,
                 outlier.size = input$boxplotoutliersize,
+                outlier.shape = ifelse(input$boxplotoutliersize==0,NA,translate_shape_string(input$boxplotoutliershape)),
                 position = eval(parse(text=positionboxplot))
               )
             }
@@ -3863,6 +3849,7 @@ function(input, output, session) {
               alpha = input$boxplotalpha,
               outlier.alpha = input$boxplotoutlieralpha,
               outlier.size = input$boxplotoutliersize,
+              outlier.shape = ifelse(input$boxplotoutliersize==0,NA,translate_shape_string(input$boxplotoutliershape)),
               position = eval(parse(text=positionboxplot))
             )
           }
@@ -3876,6 +3863,7 @@ function(input, output, session) {
               alpha = input$boxplotalpha,
               outlier.alpha = input$boxplotoutlieralpha,
               outlier.size = input$boxplotoutliersize,
+              outlier.shape = ifelse(input$boxplotoutliersize==0,NA,translate_shape_string(input$boxplotoutliershape)),
               position = eval(parse(text=positionboxplot))
             )
           }
@@ -4722,10 +4710,10 @@ function(input, output, session) {
                                          method.args = list(formula = y ~ x, weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
                                          label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
-                                         aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
-                                                                   "%+-%", signif(..x_se.., digits = 2),
-                                                                   "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
-                                                                   "%+-%", signif(..Intercept_se.., digits = 2),
+                                         aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
+                                                                   "%+-%", signif(..Intercept_se.. , digits = 2),
+                                                                   "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
+                                                                   "%+-%", signif(..x_se.. , digits = 2),
                                                                    sep = ""),
                                              group=NULL,weight=!!aesweight),
                                        parse = TRUE, show.legend = FALSE)
@@ -4821,10 +4809,10 @@ function(input, output, session) {
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
                                              label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
-                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
-                                                               "%+-%", signif(..x_se.., digits = 2),
-                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
-                                                               "%+-%", signif(..Intercept_se.., digits = 2),
+                                             aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
+                                                               "%+-%", signif(..Intercept_se.. , digits = 2),
+                                                               "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
+                                                               "%+-%", signif(..x_se.. , digits = 2),
                                                                sep = ""),
                                                  group=NULL,weight=!!aesweight),
                                              parse = TRUE, show.legend = FALSE)
@@ -4923,10 +4911,10 @@ function(input, output, session) {
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
                                              label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
-                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
-                                                               "%+-%", signif(..x_se.., digits = 2),
-                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
-                                                               "%+-%", signif(..Intercept_se.., digits = 2),
+                                             aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
+                                                               "%+-%", signif(..Intercept_se.. , digits = 2),
+                                                               "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
+                                                               "%+-%", signif(..x_se.. , digits = 2),
                                                                sep = ""),
                                                  weight=!!aesweight),
                                              parse = TRUE, show.legend = FALSE)
@@ -5025,11 +5013,12 @@ function(input, output, session) {
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
                                              label.x = Inf ,label.y = -Inf, size=input$smoothtextsize,
-                                             aes(label = paste("Intercept~`=`~", signif(..x_estimate.., digits = 3),
-                                                               "%+-%", signif(..x_se.., digits = 2),
-                                                               "~Slope~`=`~", signif(..Intercept_estimate.., digits = 3),
-                                                               "%+-%", signif(..Intercept_se.., digits = 2),
-                                                               sep = ""),weight=!!aesweight),
+                                             aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
+                                                               "%+-%", signif(..Intercept_se.. , digits = 2),
+                                                               "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
+                                                               "%+-%", signif(..x_se.. , digits = 2),
+                                                               sep = ""),
+                                                 weight=!!aesweight),
                                              parse = TRUE, show.legend = FALSE)
             }
             
@@ -6354,6 +6343,7 @@ function(input, output, session) {
       }#endfacetwrap
       
       if (!input$custom_scale_y_expansion) expansionobjy <- waiver()
+      if (!input$custom_scale_x_expansion) expansionobjx <- waiver()
       
       if (input$custom_scale_y_expansion) {
         expansionobjy <- expansion(mult = c(input$yexpansion_l_mult,
@@ -6361,8 +6351,7 @@ function(input, output, session) {
                                    add  = c(input$yexpansion_l_add,
                                             input$yexpansion_r_add))
       }
-      if (!input$custom_scale_x_expansion) expansionobjx <- waiver()
-      
+
       if (input$custom_scale_x_expansion) {
         expansionobjx <- expansion(mult = c(input$xexpansion_l_mult,
                                             input$xexpansion_r_mult),
@@ -6391,22 +6380,19 @@ function(input, output, session) {
             p <- p +
               scale_y_continuous(expand = expansionobjy,
                                  breaks = waiver(),
-                                 labels = waiver()) +
-              scale_x_discrete(expand = expansionobjx)
+                                 labels = waiver())
           }
           if(input$yaxisformat=="percenty"){
             p <- p +
               scale_y_continuous(expand = expansionobjy,
                                  breaks = waiver(),
-                                 labels = scales::percent_format()) +
-              scale_x_discrete(expand = expansionobjx)
+                                 labels = scales::percent_format())
           }
           if(input$yaxisformat=="scientificy"){
             p <- p +
               scale_y_continuous(expand = expansionobjy,
                                  breaks = waiver(),
-                                 labels = comma) +
-              scale_x_discrete(expand = expansionobjx)
+                                 labels = comma) 
           }
         }
         #null x not numeric y
@@ -6417,22 +6403,19 @@ function(input, output, session) {
             p <- p +
               scale_x_continuous(expand = expansionobjx,
                                  breaks = waiver(),
-                                 labels = waiver()) +
-              scale_y_discrete(expand = expansionobjy)
+                                 labels = waiver())
           }
           if(input$xaxisformat=="percentx"){
             p <- p +
               scale_x_continuous(expand = expansionobjx,
                                  breaks = waiver(),
-                                 labels = scales::percent_format()) +
-              scale_y_discrete(expand = expansionobjy)
+                                 labels = scales::percent_format())
           }
           if(input$xaxisformat=="scientificx"){
             p <- p +
               scale_x_continuous(expand = expansionobjx,
                                  breaks = waiver(),
-                                 labels = comma) +
-              scale_y_discrete(expand = expansionobjy)
+                                 labels = comma)
           }
         }
       }#logic for univariate plots ends
@@ -6727,14 +6710,16 @@ function(input, output, session) {
         }
       }#percent x format
       
-      if (!is.null(plotdata$xvalues) &&
+      if (!all(is.na(plotdata$xvalues)) &&
+          !is.null(plotdata$xvalues) &&
           !is.numeric(plotdata[,"xvalues"]) &&
           !inherits(plotdata[,"xvalues"], "POSIXct")
           ) {
         p <- p  + scale_x_discrete(labels = label_wrap(input$x_label_text_width),
                                    expand = expansionobjx)
       }
-      if (!is.null(plotdata$yvalues) &&
+      if (!all(is.na(plotdata$yvalues)) &&
+          !is.null(plotdata$yvalues) &&
           !is.numeric(plotdata[,"yvalues"])&&
           !inherits(plotdata[,"yvalues"], "POSIXct")
           ) {
@@ -6775,7 +6760,10 @@ function(input, output, session) {
         geom_hline(yintercept=input$hline2,color=input$hlinecol2,linetype=input$hlinetype2,size=input$hlinesize2)     
       
       if (input$identityline)
-        p <-    p + geom_abline(intercept = 0, slope = 1)
+        p <-    p + geom_abline(intercept = 0, slope = 1,
+                                col = input$identitylinecol,
+                                size = input$identitylinesize,
+                                linetype = input$identitylinetype)  
 
       
       if (input$customlegendtitle){
@@ -6930,12 +6918,13 @@ function(input, output, session) {
                           ylim= NULL,
                           expand=input$expand,
                           clip=ifelse(input$clip,"on","off"))
+
       }
       
-      if (all(input$yaxiszoom=='noyzoom'  && !is.null(plotdata$xvalues))
+      if (all(input$yaxiszoom=='noyzoom' )
       ){
         if(input$xaxiszoom=="userxzoom"){
-          if( (!is.null(input$lowerxin) | !is.null(input$upperxin))
+          if( (!is.null(input$lowerxin) || !is.null(input$upperxin))
               ){
           p <- p +
             coord_cartesian(xlim= c(ifelse(!is.finite(input$lowerxin),NA,input$lowerxin ),
@@ -6945,8 +6934,7 @@ function(input, output, session) {
           }
         }
         if(input$xaxiszoom=="automaticxzoom"){
-          if(!is.null(input$xaxiszoomin[1])  
-             ){
+          if(!is.null(input$xaxiszoomin[1]) ){
           p <- p +
             coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
                             expand=input$expand,
@@ -6954,14 +6942,13 @@ function(input, output, session) {
           }
           if(is.null(input$xaxiszoomin[1]) ){
             p <- p +
-              coord_cartesian(xlim = NULL,
-                              expand = input$expand,
+              coord_cartesian(expand = input$expand,
                               clip = ifelse(input$clip,"on","off")) 
           } 
         }
       }
       
-      if (all(input$xaxiszoom=='noxzoom'  && !is.null(plotdata$yvalues) )
+      if (all(input$xaxiszoom=='noxzoom'   )
       ){
         
         if(input$yaxiszoom=="useryzoom" ){
@@ -6993,49 +6980,57 @@ function(input, output, session) {
         
       }
       
-      
-      if (all(!is.null(input$xaxiszoomin[1])  &&
-              !is.null(plotdata$yvalues) &&
-              !is.null(plotdata$xvalues))
-      ){
         if (input$xaxiszoom=="userxzoom" && input$yaxiszoom=="useryzoom"){
           p <- p +
-            coord_cartesian(xlim= c(input$lowerxin,
-                                    input$upperxin),
-                            ylim= c(input$loweryin,
-                                    input$upperyin),
+            coord_cartesian(xlim= c(ifelse(!is.finite(input$lowerxin),NA,input$lowerxin ),
+                                     ifelse(!is.finite(input$upperxin),NA,input$upperxin )),
+                            ylim= c(ifelse(!is.finite(input$loweryin),NA,input$loweryin ),
+                                    ifelse(!is.finite(input$upperyin),NA,input$upperyin )),
                             expand=input$expand,
                             clip=ifelse(input$clip,"on","off"))
         }
         if (input$xaxiszoom=="userxzoom" && input$yaxiszoom=="automaticyzoom"){
           if(!is.null(input$yaxiszoomin[1]) ){
             p <- p +
-              coord_cartesian(xlim= c(input$lowerxin, input$upperxin),
+              coord_cartesian(xlim= c(ifelse(!is.finite(input$lowerxin),NA,input$lowerxin ),
+                                      ifelse(!is.finite(input$upperxin),NA,input$upperxin )),
                               ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2]),
                               expand=input$expand,
                               clip=ifelse(input$clip,"on","off"))
           }
           if(is.null(input$yaxiszoomin[1]) ){
             p <- p +
-              coord_cartesian(xlim= c(input$lowerxin, input$upperxin),
-                              ylim= NULL,
+              coord_cartesian(xlim= c(ifelse(!is.finite(input$lowerxin),NA,input$lowerxin ),
+                                      ifelse(!is.finite(input$upperxin),NA,input$upperxin )),
+                              ylim= c(NA,NA),
                               expand=input$expand,
                               clip=ifelse(input$clip,"on","off"))
           }
           
         }
         if (input$xaxiszoom=="automaticxzoom" && input$yaxiszoom=="useryzoom"){
+          if(!is.null(input$xaxiszoomin[1]) ){
           p <- p +
             coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
-                            ylim= c(input$loweryin,input$upperyin),
+                            ylim= c(ifelse(!is.finite(input$loweryin),NA,input$loweryin ),
+                                    ifelse(!is.finite(input$upperyin),NA,input$upperyin )),
                             expand=input$expand,
                             clip=ifelse(input$clip,"on","off"))
+          }
+          if(is.null(input$xaxiszoomin[1]) ){
+            p <- p +
+              coord_cartesian(xlim= c(NA,NA),
+                              ylim= c(ifelse(!is.finite(input$loweryin),NA,input$loweryin ),
+                                      ifelse(!is.finite(input$upperyin),NA,input$upperyin )),
+                              expand=input$expand,
+                              clip=ifelse(input$clip,"on","off"))
+          }
         }
         if (input$xaxiszoom=="automaticxzoom" && input$yaxiszoom=="automaticyzoom"){
           if(is.null(input$yaxiszoomin[1]) && is.null(input$xaxiszoomin[1]) ){
             p <- p +
-              coord_cartesian(xlim= NULL,
-                              ylim= NULL,
+              coord_cartesian(xlim= c(NA,NA),
+                              ylim= c(NA,NA),
                               expand=input$expand,
                               clip=ifelse(input$clip,"on","off"))
           }
@@ -7049,27 +7044,40 @@ function(input, output, session) {
           if(is.null(input$yaxiszoomin[1]) && !is.null(input$xaxiszoomin[1]) ){
             p <- p +
               coord_cartesian(xlim= c(input$xaxiszoomin[1],input$xaxiszoomin[2]),
-                              ylim= NULL,
+                              ylim= c(NA,NA),
                               expand=input$expand,
                               clip=ifelse(input$clip,"on","off"))
           }
           if(!is.null(input$yaxiszoomin[1]) && is.null(input$xaxiszoomin[1]) ){
             p <- p +
-              coord_cartesian(xlim= NULL,
+              coord_cartesian(xlim= c(NA,NA),
                               ylim= c(input$yaxiszoomin[1],input$yaxiszoomin[2]),
                               expand=input$expand,
                               clip=ifelse(input$clip,"on","off"))
           }
         }
+      
+      if ( input$barplotflip){
+        p <- p +
+          coord_flip()
       }
       
       if (input$showtargettext){
         targettext <-  gsub("\\\\n", "\\\n", input$targettext)
         p <- p +
-          annotate("text", x=input$targettextxpos, y=input$targettextypos,
-                   label=targettext, col=input$targettextcol,
-                   hjust=input$targettexthjust,
-                   vjust=input$targettextvjust,size=input$targettextsize)
+          annotate(geom = input$customtextgeom,
+                   x = ifelse(input$customtext_xposition=="min", -Inf,
+                            ifelse(input$customtext_xposition=="max", Inf,
+                                    ifelse(input$customtext_xposition =="use provided X", input$targettextxpos))),
+                   y = ifelse(input$customtext_yposition=="min", -Inf,
+                              ifelse(input$customtext_yposition=="max", Inf,
+                                     ifelse(input$customtext_yposition =="use provided Y", input$targettextypos))),
+                   label = targettext,
+                   col = input$targettextcol,
+                   fill = input$targettextfill,
+                   hjust = input$targettexthjust,
+                   vjust = input$targettextvjust,
+                   size = input$targettextsize)
       }
     } # end of things that do not apply to pairs plot
     

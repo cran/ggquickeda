@@ -6,7 +6,6 @@ suppressMessages({
   library(ggplot2)
   library(ggbeeswarm)
   library(ggpmisc)
-  library(ggstance)
   library(ggpubr)
   library(ggrepel)
   library(ggquickeda)
@@ -346,4 +345,309 @@ draw_key_boxploth <- function (data, params, size) {
                      fill = alpha(data$fill, data$alpha),
                      lwd = data$size * ggplot2::.pt,
                      lty = data$linetype))
+}
+
+position_dodgev <- function(height = NULL, preserve = c("total", "single")) {
+  ggproto(NULL, PositionDodgev,
+          height = height,
+          preserve = match.arg(preserve)
+  )
+}
+
+PositionDodgev <- ggproto("PositionDodgev", Position,
+                          height = NULL,
+                          preserve = "total",
+                          setup_params = function(self, data) {
+                            if (is.null(data$ymin) && is.null(data$ymax) && is.null(self$height)) {
+                              warning("Height not defined. Set with `position_dodge(height = ?)`",
+                                      call. = FALSE)
+                            }
+                            
+                            if (identical(self$preserve, "total")) {
+                              n <- NULL
+                            } else {
+                              panels <- unname(split(data, data$PANEL))
+                              ns <- vapply(panels, function(panel) max(table(panel$ymin)), double(1))
+                              n <- max(ns)
+                            }
+                            
+                            list(
+                              height = self$height,
+                              n = n
+                            )
+                          },
+                          
+                          setup_data = function(self, data, params) {
+                            if (!"y" %in% names(data) && all(c("ymin", "ymax") %in% names(data))) {
+                              data$y <- (data$ymin + data$ymax) / 2
+                            }
+                            data
+                          },
+                          
+                          compute_panel = function(data, params, scales) {
+                            collidev(
+                              data,
+                              params$height,
+                              name = "position_dodgev",
+                              strategy = pos_dodgev,
+                              n = params$n,
+                              check.height = FALSE
+                            )
+                          }
+)
+
+
+pos_dodgev <- function(df, height, n = NULL) {
+  if (is.null(n)) {
+    n <- length(unique(df$group))
+  }
+  
+  if (n == 1)
+    return(df)
+  
+  if (!all(c("ymin", "ymax") %in% names(df))) {
+    df$ymin <- df$y
+    df$ymax <- df$y
+  }
+  
+  d_height <- max(df$ymax - df$ymin)
+  
+  # Have a new group index from 1 to number of groups.
+  # This might be needed if the group numbers in this set don't include all of 1:n
+  groupidy <- match(df$group, sort(unique(df$group)))
+  
+  # Find the center for each group, then use that to calculate ymin and ymax
+  df$y <- df$y + height * ((groupidy - 0.5) / n - .5)
+  df$ymin <- df$y - d_height / n / 2
+  df$ymax <- df$y + d_height / n / 2
+  
+  df
+}
+
+position_dodge2v <- function(height = NULL, preserve = c("single", "total"),
+                             padding = 0.1, reverse = TRUE) {
+  ggproto(NULL, PositionDodge2v,
+          height = height,
+          preserve = match.arg(preserve),
+          padding = padding,
+          reverse = reverse
+  )
+}
+
+
+PositionDodge2v <- ggproto("PositionDodge2v", PositionDodgev,
+                           preserve = "total",
+                           padding = 0.1,
+                           reverse = TRUE,
+                           
+                           setup_params = function(self, data) {
+                             if (is.null(data$ymin) && is.null(data$ymax) && is.null(self$height)) {
+                               warning("Height not defined. Set with `position_dodge2v(height = ?)`",
+                                       call. = FALSE)
+                             }
+                             
+                             if (identical(self$preserve, "total")) {
+                               n <- NULL
+                             } else {
+                               panels <- unname(split(data, data$PANEL))
+                               if ("y" %in% names(data)) {
+                                 # Point geom
+                                 groups <- lapply(panels, function(panel) table(panel$y))
+                               } else {
+                                 # Interval geom
+                                 groups <- lapply(panels, find_y_overlaps)
+                               }
+                               n_groups <- vapply(groups, max, double(1))
+                               n <- max(n_groups)
+                             }
+                             
+                             list(
+                               height = self$height,
+                               n = n,
+                               padding = self$padding,
+                               reverse = self$reverse
+                             )
+                           },
+                           
+                           compute_panel = function(data, params, scales) {
+                             collide2v(
+                               data,
+                               params$height,
+                               name = "position_dodge2v",
+                               strategy = pos_dodge2v,
+                               n = params$n,
+                               padding = params$padding,
+                               check.height = FALSE,
+                               reverse = params$reverse
+                             )
+                           }
+)
+
+pos_dodge2v <- function(df, height, n = NULL, padding = 0.1) {
+  if (!all(c("ymin", "ymax") %in% names(df))) {
+    df$ymin <- df$y
+    df$ymax <- df$y
+  }
+  
+  # yid represents groups of boxes that share the same position
+  df$yid <- find_y_overlaps(df)
+  
+  # based on yid find newy, i.e. the center of each group of overlapping
+  # elements. for boxes, bars, etc. this should be the same as original y, but
+  # for arbitrary rects it may not be
+  newy <- (tapply(df$ymin, df$yid, min) + tapply(df$ymax, df$yid, max)) / 2
+  df$newy <- newy[df$yid]
+  
+  if (is.null(n)) {
+    # If n is null, preserve total widths of elements at each position by
+    # dividing widths by the number of elements at that position
+    n <- table(df$yid)
+    df$new_height <- (df$ymax - df$ymin) / as.numeric(n[df$yid])
+  } else {
+    df$new_height <- (df$ymax - df$ymin) / n
+  }
+  
+  # Find the total height of each group of elements
+  group_sizes <- stats::aggregate(
+    list(size = df$new_height),
+    list(newy = df$newy),
+    sum
+  )
+  
+  # Starting ymin for each group of elements
+  starts <- group_sizes$newy - (group_sizes$size / 2)
+  
+  # Set the elements in place
+  for (i in seq_along(starts)) {
+    divisions <- cumsum(c(starts[i], df[df$yid == i, "new_height"]))
+    df[df$yid == i, "ymin"] <- divisions[-length(divisions)]
+    df[df$yid == i, "ymax"] <- divisions[-1]
+  }
+  
+  # y values get moved to between ymin and ymax
+  df$y <- (df$ymin + df$ymax) / 2
+  
+  # If no elements occupy the same position, there is no need to add padding
+  if (!any(duplicated(df$yid))) {
+    return(df)
+  }
+  
+  # Shrink elements to add space between them
+  df$pad_height <- df$new_height * (1 - padding)
+  df$ymin <- df$y - (df$pad_height / 2)
+  df$ymax <- df$y + (df$pad_height / 2)
+  
+  df$yid <- NULL
+  df$newy <- NULL
+  df$new_height <- NULL
+  df$pad_height <- NULL
+  
+  df
+}
+
+find_y_overlaps <- function(df) {
+  overlaps <- numeric(nrow(df))
+  overlaps[1] <- counter <- 1
+  
+  for (i in seq_asc(2, nrow(df))) {
+    if (df$ymin[i] >= df$ymax[i - 1]) {
+      counter <- counter + 1
+    }
+    overlaps[i] <- counter
+  }
+  overlaps
+}
+
+seq_asc <- function(to, from) {
+  if (to > from) {
+    integer()
+  } else {
+    to:from
+  }
+}
+collidev_setup <- function(data, height = NULL, name, strategy,
+                           check.height = TRUE, reverse = FALSE) {
+  # Determine height
+  if (!is.null(height)) {
+    # Width set manually
+    if (!(all(c("ymin", "ymax") %in% names(data)))) {
+      data$ymin <- data$y - height / 2
+      data$ymax <- data$y + height / 2
+    }
+  } else {
+    if (!(all(c("ymin", "ymax") %in% names(data)))) {
+      data$ymin <- data$y
+      data$ymax <- data$y
+    }
+    
+    # Width determined from data, must be floating point constant
+    heights <- unique(data$ymax - data$ymin)
+    heights <- heights[!is.na(heights)]
+    
+    #   # Suppress warning message since it's not reliable
+    #     if (!zero_range(range(heights))) {
+    #       warning(name, " requires constant height: output may be incorrect",
+    #         call. = FALSE)
+    #     }
+    height <- heights[1]
+  }
+  
+  list(data = data, height = height)
+}
+
+collidev <- function(data, height = NULL, name, strategy,
+                     ..., check.height = TRUE, reverse = FALSE) {
+  dlist <- collidev_setup(data, height, name, strategy, check.height, reverse)
+  data <- dlist$data
+  height <- dlist$height
+  
+  # Reorder by x position, then on group. The default stacking order reverses
+  # the group in order to match the legend order.
+  if (reverse) {
+    data <- data[order(data$ymin, data$group), ]
+  } else {
+    data <- data[order(data$ymin, -data$group), ]
+  }
+  
+  
+  # Check for overlap
+  intervals <- as.numeric(t(unique(data[c("ymin", "ymax")])))
+  intervals <- intervals[!is.na(intervals)]
+  
+  if (length(unique(intervals)) > 1 & any(diff(scale(intervals)) < -1e-6)) {
+    warning(name, " requires non-overlapping y intervals", call. = FALSE)
+    # This is where the algorithm from [L. Wilkinson. Dot plots.
+    # The American Statistician, 1999.] should be used
+  }
+  
+  if (!is.null(data$xmax)) {
+    plyr::ddply(data, "ymin", strategy, ..., height = height)
+  } else if (!is.null(data$x)) {
+    data$xmax <- data$x
+    data <- plyr::ddply(data, "ymin", strategy, ..., height = height)
+    data$x <- data$xmax
+    data
+  } else {
+    stop("Neither x nor xmax defined")
+  }
+}
+
+# Alternate version of collidev() used by position_dodgev2()
+collide2v <- function(data, height = NULL, name, strategy,
+                      ..., check.height = TRUE, reverse = FALSE) {
+  dlist <- collidev_setup(data, height, name, strategy, check.height, reverse)
+  data <- dlist$data
+  height <- dlist$height
+  
+  # Reorder by x position, then on group. The default stacking order is
+  # different than for collide() because of the order in which pos_dodge2 places
+  # elements
+  if (reverse) {
+    data <- data[order(data$y, -data$group), ]
+  } else {
+    data <- data[order(data$y, data$group), ]
+  }
+  
+  pos <- match.fun(strategy)
+  pos(data, height, ...)
 }
