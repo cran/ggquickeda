@@ -27,6 +27,8 @@ suppressMessages({
   library(RPostgres)
 })
 
+enableBookmarking(store = "server")
+
 DATABASE_CONN <- NULL
 PGDATABASE <- Sys.getenv("PGDATABASE")
 PGHOST <- Sys.getenv("PGHOST")
@@ -147,10 +149,12 @@ manual_scale <- function(aesthetic, values = NULL, ...) {
                         x <- unlist(strsplit(x, "=|,\\s+", perl=TRUE))
                         x[seq(1, length(x), 2)]
                       })
-  variables <- unique(as.vector(variables))
+  #variables <- unique(as.vector(variables))
+  variables <- unique(as.vector(unlist(variables)))
   variables <- intersect(variables, colnames(.get_data(fit, data) ))
   variables
 }
+
 .get_data <- function(fit, data = NULL, complain = TRUE) {
   if(is.null(data)){
     if (complain)
@@ -163,7 +167,8 @@ manual_scale <- function(aesthetic, values = NULL, ...) {
 }
 .get_variable_value <- function(variable, strata, fit, data = NULL){
   res <- sapply(as.vector(strata), function(x){
-    x <- unlist(strsplit(x, "=|(\\s+)?,\\s+", perl=TRUE))
+    #x <- unlist(strsplit(x, "=|(\\s+)?,\\s+", perl=TRUE))
+    x <- unlist(strsplit(x, "(?<![<>])=|(\\s+)?,\\s+", perl=TRUE))
     index <- grep(paste0("^", variable, "$"), x)
     .trim(x[index+1])
   })
@@ -173,6 +178,56 @@ manual_scale <- function(aesthetic, values = NULL, ...) {
   else res <- as.factor(res)
   res
 }
+
+.get_choice_items <- function(data, x = NULL, y = NULL, pastevarin = NULL) {
+  items <- names(data)
+  names(items) <- items
+  items <- c("None",items)
+  if ( !is.null(x) ){
+    items <- c(items, "yvars","yvalues") 
+  }
+  if ( !is.null(y) ){
+    items <- c(items, "xvars","xvalues") 
+  }
+  if (!is.null(pastevarin) && length(pastevarin) > 1 ){
+    nameofcombinedvariables<- paste(as.character(pastevarin),collapse="_",sep="") 
+    items <- c(items,nameofcombinedvariables)
+  }
+  return(items)
+}
+
+.get_choice_items_char <- function(data) {
+  MODEDF <- sapply(data, function(x) is.numeric(x))
+  NAMESTOKEEP2<- names(data)  [ !MODEDF ]
+  items <- NAMESTOKEEP2
+  names(items) <- items
+  items <- c("None",items)
+  return(items)
+}
+
+.get_choice_items_num <- function(data) {
+  MODEDF <- sapply(data, function(x) is.numeric(x))
+  NAMESTOKEEP2<- names(data)[MODEDF]
+  items <- c("None",NAMESTOKEEP2, "yvalues") 
+  return(items)
+}
+
+.get_choice_facet_scales <- function(x = NULL, y = NULL) {
+  items <- c("fixed","free_x","free_y","free")   
+  if (is.null(x) && !is.null(y) && length(y) > 1 ){
+    items <- c("free_y","fixed","free_x","free")    
+  }
+  if (is.null(y) && !is.null(x) && length(x) > 1 ){
+    items <- c("free_x","fixed","free_y","free")    
+  }
+  if (!is.null(x) && !is.null(y) && (length(y) > 1  || 
+      length(x) > 1)  ){
+    items <- c("free","fixed","free_x","free_y")    
+  }
+  return(items)
+}
+
+
 .trim <- function(x){gsub("^\\s+|\\s+$", "", x)}
 # from survminer
 
@@ -210,6 +265,7 @@ allstats <- c("N",
               "Q1","Q2","Q3","T1","T2",
               "Geo. Mean",
               "Geo. CV%",
+              "Geo. SD",
               "Mean (SD)",
               "Mean (CV%)",
               "Mean (SD) (CV%)",

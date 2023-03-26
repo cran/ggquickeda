@@ -1,0 +1,13 @@
+name: ggquickeda
+title: ggquickeda
+username:
+account: pharmacometrics
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6437591
+bundleId: 5981255
+url: https://pharmacometrics.shinyapps.io/ggquickeda/
+when: 1654504588.91535
+lastSyncTime: 1654504588.91536
+asMultiple: FALSE
+asStatic: FALSE

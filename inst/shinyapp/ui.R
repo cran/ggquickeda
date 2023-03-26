@@ -1,22 +1,24 @@
-fluidPage(
+function(request) {
+  fluidPage(
   useShinyjs(),
   tags$link(rel = "stylesheet", href = "app.css"),
   tags$link(rel = "stylesheet", href = "table1-style.css"),
-  titlePanel(paste("Welcome to ggquickeda!",utils::packageVersion("ggquickeda"))),
   sidebarLayout(
-    sidebarPanel(
+    sidebarPanel(style = "padding-top: 0px;",
       tabsetPanel(id = "sidebar_upper_menus", selected="sidebar_inputs",
         tabPanel("Inputs", value = "sidebar_inputs", 
           tags$style(".shiny-file-input-progress {margin-bottom: 0px;margin-top: 0px}"),
           tags$style(".form-group {margin-bottom: 0px;margin-top: 0px}"),
-          tags$div(
-            tags$strong("Click Browse to choose csv file to upload with"),
-            inline_ui(radioButtons("fileseparator", NULL,
+          tags$div(class = ifelse(exists("ggquickeda_phx_app_dir"), "", "file-inputs"),
+            tags$div(
+              tags$strong("Click Browse to choose csv file to upload with"),
+              inline_ui(radioButtons("fileseparator", NULL,
                                    choices = c("comma (,)" = ",","or semicolon (;)" = ";"),
                                    selected = ",", inline = TRUE)),
-            "separators, or",actionLink("sample_data_btn", "use sample data")
-          ),
-          fileInput("datafile", NULL, multiple = FALSE, accept = c("csv")),
+              "separators, or",actionLink("sample_data_btn", "use sample data")
+            ),
+            fileInput("datafile", NULL, multiple = FALSE, accept = c("csv"))
+          ) %>% shinyjs::hidden(),
           checkboxInput("stringasfactor", "Character Variables as Factors?", TRUE),
           checkboxInput("ninetyninemissing", "Numeric Variables -99 as Missing?", FALSE),
           uiOutput("ycol"),
@@ -235,7 +237,9 @@ fluidPage(
                        inline_ui(sliderInput("y_label_text_width", "N Characters to Wrap Y Labels:",
                                    min=5, max=100, value=c(25),step=1,width = '120px')),
                        inline_ui(sliderInput("x_label_text_width", "N Characters to Wrap X Labels:",
-                                   min=5, max=100, value=c(25),step=1,width = '120px'))
+                                   min=5, max=100, value=c(25),step=1,width = '120px')),
+                       inline_ui(checkboxInput('y_label_text_parse', 'Parse Y axis Labels ?', value = FALSE,width = '120px')),
+                       inline_ui(checkboxInput('x_label_text_parse', 'Parse X axis Labels ?', value = FALSE,width = '120px'))
               ),
               checkboxInput('rotateyticks', 'Rotate/Customize Y axis Labels ?', value = FALSE),
               conditionalPanel(condition = "input.rotateyticks" ,
@@ -828,7 +832,8 @@ fluidPage(
                          radioButtons("scaleshapeswitcher", "Discrete Shape Scale:",
                                       c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
                          conditionalPanel(condition = " input.scaleshapeswitcher=='themeuser' " ,
-                                          sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1)
+                                          sliderInput("nusershape", "N of User Shapes:", min=1, max=20, value=c(6),step=1),
+                                          checkboxInput('themeshapedrop', 'Keep All levels of Shapes ?',value=TRUE)
                          ),
                          uiOutput('userdefinedshape')
                 ),
@@ -836,7 +841,8 @@ fluidPage(
                          radioButtons("scalelinetypeswitcher", "Discrete Linetype Scale:",
                                       c("ggplot default" = "themeggplot","User defined" = "themeuser") ,inline=TRUE),
                          conditionalPanel(condition = " input.scalelinetypeswitcher=='themeuser' " ,
-                                          sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1)
+                                          sliderInput("nuserlinetype", "N of User Linetypes:", min=1, max=10, value=c(6),step=1),
+                                          checkboxInput('themelinetypedrop', 'Keep All levels of Linetypes ?',value=TRUE)
                          ),
                          uiOutput('userdefinedlinetype')
                 ),
@@ -2214,6 +2220,7 @@ fluidPage(
                                                                               "cum.n.censor") ,multiple=TRUE,
                                                                   selected = c("n.risk","n.censor")),
                                                    checkboxInput('addhorizontallines', 'Draw Horizontal lines',value = TRUE),
+                                                   sliderInput("risktabletextsize", "Text Size:", min=0, max=6, value=c(3.88), step=0.01),
                                                    numericInput(inputId = "breaktimeby",
                                                                 label = "Show Numbers Every x time unit:",value="", min = 0,max = NA),
                                                    sliderInput("nriskpositionscaler", "Numbers position scaler:", min=0.1, max=1, value=c(0.2),step=0.01),
@@ -2334,7 +2341,8 @@ fluidPage(
                     radioButtons("geomlabel", "Label Geom:",
                                  c("text" = "text","label" = "label",
                                    "auto text repel" = "text_repel",
-                                   "auto label repel" = "label_repel"), inline = TRUE)
+                                   "auto label repel" = "label_repel"), inline = TRUE),
+                    checkboxInput('customlabelparse',"Parse Label ?", value=FALSE)
                   ),
                   column(3,
                          conditionalPanel(
@@ -2535,7 +2543,7 @@ fluidPage(
                               icon = icon("sync")),
                  fluidRow(
                    column(3,
-                          div(id="quick_relabel_placeholder"),
+                          uiOutput("quick_relabel_placeholder"),
                           uiOutput("dstats_col_extra"),
                           uiOutput("flipthelevels")
                    ),
@@ -2591,3 +2599,5 @@ fluidPage(
       )#mainPanel
   )#sidebarLayout
 )#fluidPage
+}
+
