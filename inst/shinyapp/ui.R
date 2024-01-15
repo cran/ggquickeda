@@ -70,7 +70,7 @@ function(request) {
                 actionButton("factor_lvl_change_remove", "Remove last", icon("trash"))
               ))
             ),
-            tabPanel("Combine Two Variables",
+            tabPanel("Combine Two/Three Variables",
                      h6("Combined variables can be used for colour, fill, group, size and facets. They cannot be used as X or Y variables."),
                      
                      uiOutput("pastevar")
@@ -2366,11 +2366,13 @@ function(request) {
                            checkboxInput('labelignoresize', 'Ignore Mapped Size')),
                          conditionalPanel(
                            " input.addcustomlabel && input.labelignoresize  ",
-                           sliderInput("labelsize", "Label Size:", min=0, max=6, value=c(1),step=0.1)
+                           sliderInput("labelsize", "Label Size:", min=0, max=10, value=c(1),step=0.1)
                          ),
                          conditionalPanel(" input.addcustomlabel ",
-                                            checkboxInput('roundlabeldigits', 'Round the numeric labels digits?')),
-                         conditionalPanel(" input.roundlabeldigits && input.roundlabeldigits",
+                                            checkboxInput('multiply100', 'Multiply by 100?')),
+                         conditionalPanel(" input.addcustomlabel ",
+                                          checkboxInput('roundlabeldigits', 'Round the numeric labels digits?')),
+                         conditionalPanel(" input.addcustomlabel && input.roundlabeldigits",
                                           numericInput("nroundlabeldigits",label = "N Digits",
                                                        value = 0,min=0,max=10) )
                   ),

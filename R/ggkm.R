@@ -11,7 +11,7 @@
 #' @importFrom scales trans_breaks
 #' @importFrom scales trans_format
 #' @importFrom scales math_format
-#' @importFrom scales percent_format
+#' @importFrom scales label_percent
 #' @importFrom scales parse_format
 #' @importFrom scales percent
 #' @importFrom scales label_parse
@@ -28,10 +28,14 @@ GeomKm <- ggplot2::ggproto("GeomKm", ggplot2::Geom,
                            },
                            
                            required_aes = c("x", "y"),
-                           default_aes = ggplot2::aes(colour="black", fill="grey60", size=.75,
+                           default_aes = ggplot2::aes(colour="black", fill="grey60", linewidth = .75,
                                                       linetype=1, weight=1, alpha = 1),
-                           draw_key = ggplot2::draw_key_path
-                           
+                           draw_key = ggplot2::draw_key_path,
+                           # To allow using size in ggplot2 < 3.4.0
+                           non_missing_aes = "size",
+
+                           # Tell ggplot2 to perform automatic renaming
+                           rename_size = TRUE                    
                            
 )
 
@@ -55,10 +59,16 @@ GeomKmband <- ggplot2::ggproto("GeomKmband", ggplot2::Geom,
                                },
                                
                                required_aes = c("x", "ymin", "ymax"),
-                               default_aes = ggplot2::aes(colour="black", fill="grey60", size=.75,
+                               default_aes = ggplot2::aes(colour="black", fill="grey60", linewidth=.75,
                                                           linetype=1, weight=1, alpha=0.4),
                                
-                               draw_key = ggplot2::draw_key_smooth
+                               draw_key = ggplot2::draw_key_smooth,
+                               
+                               # To allow using size in ggplot2 < 3.4.0 https://www.tidyverse.org/blog/2022/08/ggplot2-3-4-0-size-to-linewidth/
+                               non_missing_aes = "size",
+                               
+                               # Tell ggplot2 to perform automatic renaming
+                               rename_size = TRUE     
                                
 )
 
@@ -94,7 +104,6 @@ GeomKmticks <- ggplot2::ggproto("GeomKmticks", ggplot2::Geom,
                                   }
                                   
                                 },
-                                
                                 required_aes = c("x", "y"),
                                 non_missing_aes = c("size", "shape"),
                                 default_aes = ggplot2::aes(
@@ -112,9 +121,9 @@ GeomKmticks <- ggplot2::ggproto("GeomKmticks", ggplot2::Geom,
 #' \code{geom_km} understands the following aesthetics (required aesthetics
 #' are in bold):
 #' \itemize{
-#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by \link{stat_km}
-#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by \link{stat_km}
-#'   smallest level in sort order is assumed to be 0, with a warning
+#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by [stat_km()]
+#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by [stat_km()]
+#'   smallest level in sort order is assumed to be 0, with a warning.
 #'   \item \code{alpha}
 #'   \item \code{color}
 #'   \item \code{linetype}
@@ -122,11 +131,12 @@ GeomKmticks <- ggplot2::ggproto("GeomKmticks", ggplot2::Geom,
 #' }
 #'
 #' @inheritParams ggplot2::geom_point
-#' @seealso The default stat for this geom is \code{\link{stat_km}} see
+#' @seealso The default stat for this geom is [stat_km()] see
 #'   that documentation for more options to control the underlying statistical transformation.
 #' @export
 #' @examples
 #' library(ggplot2)
+#' set.seed(123)
 #' sex <- rbinom(250, 1, .5)
 #' df <- data.frame(time = exp(rnorm(250, mean = sex)), status = rbinom(250, 1, .75), sex = sex)
 #' ggplot(df, aes(time = time, status = status, color = factor(sex))) + geom_km()
@@ -148,17 +158,17 @@ geom_km <- function(mapping = NULL, data = NULL, stat = "km",
 #' \code{geom_kmband} understands the following aesthetics (required aesthetics
 #' are in bold):
 #' \itemize{
-#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by \link{stat_kmband}
-#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by \link{stat_kmband}
+#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by [stat_kmband()]
+#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by [stat_kmband()]
 #'   smallest level in sort order is assumed to be 0, with a warning
 #'   \item \code{alpha}
 #'   \item \code{color}
 #'   \item \code{linetype}
-#'   \item \code{size}
+#'   \item \code{linewidth}
 #' }
 #'
 #' @inheritParams ggplot2::geom_point
-#' @seealso The default stat for this geom is \code{\link{stat_kmband}} see
+#' @seealso The default stat for this geom is [stat_kmband()]. See
 #'   that documentation for more options to control the underlying statistical transformation.
 #' @export
 #' @examples
@@ -187,8 +197,8 @@ geom_kmband <- function(mapping = NULL, data = NULL, stat = "kmband",
 #' \code{geom_kmticks} understands the following aesthetics (required aesthetics
 #' are in bold):
 #' \itemize{
-#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by \link{stat_km}
-#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by \link{stat_km}
+#'   \item \strong{\code{x}} The survival/censoring times. This is automatically mapped by [stat_kmticks()]
+#'   \item \strong{\code{y}} The survival probability estimates. This is automatically mapped by [stat_kmticks()]
 #'   smallest level in sort order is assumed to be 0, with a warning
 #'   \item \code{alpha}
 #'   \item \code{color}
@@ -197,10 +207,9 @@ geom_kmband <- function(mapping = NULL, data = NULL, stat = "kmband",
 #' }
 #'
 #' @inheritParams ggplot2::geom_point
-#' @seealso The default stat for this geom is \code{\link{stat_kmticks}} see
+#' @seealso The default stat for this geom is [stat_kmticks] see
 #'   that documentation for more options to control the underlying statistical transformation.
 #' @export
-#' @rdname geom_kmticks
 #' @examples
 #' library(ggplot2)
 #' sex <- rbinom(250, 1, .5)
@@ -229,7 +238,7 @@ geom_kmticks <- function(mapping = NULL, data = NULL, stat = "kmticks",
 #' @export
 
 StatKm <- ggplot2::ggproto("StatKm", ggplot2::Stat,
-                           
+                           dropped_aes = c("status"),
                            compute_group = function(data, scales, trans = scales::identity_trans(), firstx = 0, firsty = 1,
                                                     type = "kaplan-meier", start.time = 0) {
                              
@@ -269,7 +278,7 @@ StatKm <- ggplot2::ggproto("StatKm", ggplot2::Stat,
 #' @export
 
 StatKmband <- ggplot2::ggproto("StatKmband", ggplot2::Stat,
-                               
+                               dropped_aes = "status",
                                compute_group = function(data, scales, trans = scales::identity_trans(), firstx = 0, firsty = 1,
                                                         type = "kaplan-meier", error = "greenwood", conf.type = "log",
                                                         conf.lower = "usual", start.time = 0, conf.int = 0.95) {
@@ -328,7 +337,7 @@ StatKmband <- ggplot2::ggproto("StatKmband", ggplot2::Stat,
 #'   to "identity". Other options include "event", "cumhaz", "cloglog", or
 #'   define your own using \link{trans_new}.
 #' @param firstx,firsty the starting point for the survival curves. By default,
-#'   the plot program obeys tradition by having the plot start at (0,1).
+#'   the plot program obeys tradition by having the plot start at `(0,1)`.
 #' @param start.time numeric value specifying a time to start calculating survival information.
 #'  The resulting curve is the survival conditional on surviving to start.time.
 #' @param type an older argument that combined stype and ctype, now deprecated. Legal values were
@@ -397,13 +406,13 @@ stat_km <- function(mapping = NULL, data = NULL, geom = "km",
 #'   \item \code{alpha}
 #'   \item \code{color}
 #'   \item \code{linetype}
-#'   \item \code{size}
+#'   \item \code{linewidth}
 #' }
 #'
 #' @inheritParams ggplot2::stat_identity
 #' @param trans Transformation to apply to the survival probabilities. Defaults
 #'   to "identity". Other options include "event", "cumhaz", "cloglog", or
-#'   define your own using \link{trans_new}.
+#'   define your own using [scales::trans_new()].
 #' @param firstx,firsty the starting point for the survival curves. By default,
 #'   the plot program obeys tradition by having the plot start at (0,1).
 #' @inheritParams survival::survfit.formula
@@ -507,7 +516,7 @@ StatKmticks <- ggplot2::ggproto("StatKmticks", ggplot2::Stat,
                                   sf.df
                                   
                                 },
-                                
+                                dropped_aes = "status",
                                 default_aes = ggplot2::aes(y = ..survival.., x = ..time..),
                                 required_aes = c("time", "status")
                                 
