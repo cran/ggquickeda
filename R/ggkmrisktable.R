@@ -1,5 +1,6 @@
 #' @importFrom rlang :=
 #' @importFrom rlang .data
+#' @importFrom rlang syms
 #' @importFrom survival survfit
 #' @importFrom survival Surv
 #' @import tidyr
@@ -66,11 +67,12 @@ lung_long$facetdum <- "(all)"
   }
   data
 }
+
 .get_variable_value <- function(variable, strata, fit, data = NULL){
   res <- sapply(as.vector(strata), function(x){
-    #x <- unlist(strsplit(x, "=|(\\s+)?,\\s+", perl=TRUE))
-    x <- unlist(strsplit(x, "(?<![<>])=|(\\s+)?,\\s+", perl=TRUE))
-    index <- grep(paste0("^", variable, "$"), x)
+    x <- unlist(strsplit(x, "=|(\\s+)?,\\s+", perl=TRUE))
+    # When a factor name is the same as one of its level, index is of length 2
+    index <- grep(paste0("^", variable, "$"), x)[1]
     .trim(x[index+1])
   })
   res <- as.vector(res)
@@ -146,6 +148,12 @@ lung_long$facetdum <- "(all)"
 #' @param exposure_metric_split one of "median", "tertile", "quartile", "none"
 #' @param exposure_metric_soc_value  special exposure code for standard of care default -99 
 #' @param exposure_metric_plac_value special exposure code for placebo default 0
+#' @param exposure_metric_soc_name  soc name default to "soc" 
+#' @param exposure_metric_plac_name placebo name default to "placebo"
+#' @param show_exptile_values FALSE
+#' @param show_exptile_values_pos "left" or "right"
+#' @param show_exptile_values_textsize default to 5
+#' @param show_exptile_values_order the order of the entries "default" or "reverse"
 #' @param color_fill name of the column to be used for color/fill default to `exptile`
 #' @param linetype name of the column to be used for linetype default to `exptile`
 #' @param xlab text to be used as x axis label
@@ -160,7 +168,11 @@ lung_long$facetdum <- "(all)"
 #' @param nrisk_filterout0 FALSE
 #' @param km_logrank_pvalue FALSE
 #' @param km_logrank_pvalue_pos "left" or "right"
+#' @param km_logrank_pvalue_textsize pvalue text size default to 5
+#' @param km_logrank_pvalue_cutoff pvalue below which to print as p < cutoff
+#' @param km_logrank_pvalue_digits pvalue ndigits for round function
 #' @param km_trans one of "identity","event","cumhaz","cloglog"
+#' @param km_linewidth linewidth for the km curves default to 1
 #' @param km_ticks TRUE
 #' @param km_band TRUE
 #' @param km_conf_int 0.95
@@ -174,6 +186,7 @@ lung_long$facetdum <- "(all)"
 #' @param facet_ncol NULL if not specified the automatic waiver will be used
 #' @param facet_strip_position position in sequence for the variable used in faceting default to c("top","top","top","top")
 #' @param theme_certara apply certara colors and format for strips and default colour/fill
+#' @param return_list What to return if True a list of the datasets and plot is returned instead of only the plot
 #' @examples
 #' library(tidyr)
 #' # Example 1
@@ -216,6 +229,8 @@ lung_long$facetdum <- "(all)"
 #'              km_median = "medianci",
 #'              km_band = TRUE,
 #'              km_trans = "event",
+#'              show_exptile_values = TRUE,
+#'              show_exptile_values_pos = "right",
 #'              nrisk_table_breaktimeby = 200,
 #'              facet_ncol = 3,
 #'              facet_formula = ~expname)
@@ -235,6 +250,8 @@ lung_long$facetdum <- "(all)"
 #'              km_median = "table",
 #'              km_median_table_pos = "right",
 #'              km_logrank_pvalue = TRUE,
+#'              km_logrank_pvalue_cutoff = 0.0001,
+#'              km_logrank_pvalue_digits = 3,
 #'              km_band = TRUE,
 #'              nrisk_table_breaktimeby = 200,
 #'              facet_ncol = 3,
@@ -261,7 +278,7 @@ lung_long$facetdum <- "(all)"
 #' ggkmrisktable(data=lung_long,
 #'              exposure_metrics = c("ph.karno","age"),
 #'              exposure_metric_split = "none",
-#'               color_fill = "facetdum",
+#'               color_fill = "none",
 #'              linetype = "none",
 #'              nrisk_table_variables = c("n.risk", "pct.risk", "n.event", "cum.n.event", "n.censor"),
 #'               km_median = "table",
@@ -281,6 +298,12 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                          exposure_metric_split = c("median","tertile","quartile","none"),
                          exposure_metric_soc_value = -99,
                          exposure_metric_plac_value = 0,
+                         exposure_metric_soc_name = "SOC",
+                         exposure_metric_plac_name = "Placebo",
+                         show_exptile_values = FALSE,
+                         show_exptile_values_pos = c("left","right"),
+                         show_exptile_values_textsize = 5,
+                         show_exptile_values_order = c("default","reverse"),
                          color_fill = "exptile",
                          linetype = "exptile",
                          xlab = "Time of follow_up",
@@ -295,7 +318,11 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                          nrisk_filterout0 = FALSE,
                          km_logrank_pvalue = FALSE,
                          km_logrank_pvalue_pos = c("left","right"),
+                         km_logrank_pvalue_textsize = 5,
+                         km_logrank_pvalue_cutoff = 0.001,
+                         km_logrank_pvalue_digits = 3,
                          km_trans = c("identity","event","cumhaz","cloglog"),
+                         km_linewidth = 1,
                          km_ticks = TRUE,
                          km_band  = TRUE,
                          km_conf_int = 0.95,
@@ -308,8 +335,10 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                          facet_formula = NULL,
                          facet_ncol = NULL,
                          facet_strip_position = c("top","top","top","top"),
-                         theme_certara = TRUE
+                         theme_certara = TRUE,
+                         return_list = FALSE
 ) {
+  none = NULL
   timevar          <- time
   statusvar        <- status
   endpointinputvar <- endpoint
@@ -332,9 +361,11 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
   km_median_table_pos <- match.arg(km_median_table_pos, several.ok = FALSE)
   km_median_table_order <- match.arg(km_median_table_order, several.ok = FALSE)
   km_yaxis_position <- match.arg(km_yaxis_position, several.ok = FALSE)
+  show_exptile_values_pos <- match.arg(show_exptile_values_pos, several.ok = FALSE)
+  show_exptile_values_order <- match.arg(show_exptile_values_order, several.ok = FALSE)
   
   pval.txt = expname = expvalue = x1lower = x1upper = x1 = y2 = keynumeric = key = n.risk = value = loopvariable = NULL
-  
+  exprange = exptile = exptile2 = pval = NULL
   facetvars <- unique(c(groupvar1inputvar,groupvar2inputvar,groupvar3inputvar))
   facetvars <- c(groupvar1inputvar,groupvar2inputvar,groupvar3inputvar) [
     c(groupvar1inputvar,groupvar2inputvar,groupvar3inputvar)!= "."]
@@ -346,14 +377,28 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
       stats::as.formula(facet_formula)
 
   exposure_metric_split <- match.arg(exposure_metric_split)
-  data <- data |> 
-    dplyr::mutate(none = "(all)")  # needed when no metric are chosen
-    #dplyr::mutate(`(all)` = "(all)") # needed when no metric are chosen
+ 
+
+  if(all(exposure_metrics%in% c("none",""))) {
+    data <- data |> 
+      dplyr::mutate(none = "(all)")  # needed when no metric are chosen
+    exposure_metric_split <- "none"
+    colorinputvar    <-  if (color_fill !="none") color_fill else NULL
+    fillinputvar     <-  if (color_fill !="none") color_fill else NULL
+    linetypeinputvar <-  if (linetype   !="none") linetype   else NULL
+    
+    
+    data.long <- data |>
+      tidyr::gather(expname,expvalue,none) |> 
+      dplyr::group_by(expname,!!endpoint)    
+  }
   
-  data.long <- data |> 
-    tidyr::gather(expname,expvalue,!!!exposure_metrics) |> 
-    dplyr::group_by(expname,!!endpoint) 
-  
+  if(!all(exposure_metrics%in% c("none",""))) {
+    data.long <- data |> 
+      tidyr::gather(expname,expvalue,!!!exposure_metrics) |> 
+      dplyr::group_by(expname,!!endpoint)
+  }
+
   if(exposure_metric_split=="none") {
     data.long <- data.long |> 
       dplyr::mutate(exptile = dplyr::case_when(
@@ -371,8 +416,8 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
         Q75 = stats::quantile(expvalue[!expvalue %in% c(exposure_metric_soc_value,
                                                  exposure_metric_plac_value)], 0.75, na.rm=TRUE)) |> 
        dplyr::mutate(exptile = dplyr::case_when(
-         expvalue == exposure_metric_soc_value  ~ "SOC",
-         expvalue == exposure_metric_plac_value ~ "Placebo",
+         expvalue == exposure_metric_soc_value  ~ exposure_metric_soc_name,
+         expvalue == exposure_metric_plac_value ~ exposure_metric_plac_name,
          expvalue  > exposure_metric_plac_value &
                            expvalue <= Q25      ~ "Q1",
          expvalue > Q25  & expvalue <= Q50      ~ "Q2",
@@ -387,8 +432,8 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
         Q66 = stats::quantile(expvalue[!expvalue %in% c(exposure_metric_soc_value,
                                                  exposure_metric_plac_value)], 2/3, na.rm=TRUE)) |> 
       dplyr::mutate(exptile = dplyr::case_when(
-        expvalue == exposure_metric_soc_value  ~ "SOC",
-        expvalue == exposure_metric_plac_value ~" Placebo",
+        expvalue == exposure_metric_soc_value  ~ exposure_metric_soc_name,
+        expvalue == exposure_metric_plac_value ~ exposure_metric_plac_name,
         expvalue  > exposure_metric_plac_value &
                           expvalue <= Q33      ~ "T1",
         expvalue > Q33  & expvalue <= Q66      ~ "T2",
@@ -400,13 +445,34 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
         Q50 = stats::quantile(expvalue[!expvalue %in% c(exposure_metric_soc_value,
                                                  exposure_metric_plac_value)], 0.5, na.rm=TRUE)) |> 
       dplyr::mutate(exptile = dplyr::case_when(
-        expvalue == exposure_metric_soc_value  ~"SOC",
-        expvalue == exposure_metric_plac_value ~"Placebo",
+        expvalue == exposure_metric_soc_value  ~ exposure_metric_soc_name,
+        expvalue == exposure_metric_plac_value ~ exposure_metric_plac_name,
         expvalue > 0   &  expvalue <= Q50      ~ "M1",
         expvalue > Q50                         ~ "M2"))
   }
   data.long$exptile2 <- data.long$exptile
   
+  listvars <- unique(c(endpointinputvar,colorinputvar,fillinputvar,linetypeinputvar))
+  listvars <- listvars[!is.element(listvars,c("none",".")) ]
+  listvars <- c(listvars,"expname","exptile","exptile2")
+  listvars <- listvars[!duplicated(listvars) ]
+  
+
+  if(!all(exposure_metrics%in% c("none",""))) {
+    data.long.quantiles <- data.long |>
+      dplyr::group_by(!!!syms(listvars))|>
+      #dplyr::group_by(Endpoint,exptile,expname,exptile2)|>
+      dplyr::summarize(exprange = paste0("(",round(min(expvalue),2),"-",round(max(expvalue),2),"]"))
+    
+  }
+  if(all(exposure_metrics%in% c("none",""))) {
+    data.long.quantiles <- data.long |>
+      dplyr::group_by(!!!syms(listvars))|>
+      dplyr::summarize(exprange = "none")
+
+  }
+  #print(data.long.quantiles)
+  #sprintf("%#.3g (%#.3g-%#.3g]",min(expvalue),max(expvalue))
   
   #we generate a curve by the combination of all these inputs removing duplicates and none
   listvars <- unique(c(endpointinputvar,colorinputvar,fillinputvar,linetypeinputvar,
@@ -440,7 +506,7 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
   if(km_logrank_pvalue){ #log rank does not group by color_fill, linetype exptile
     loopvariables <- unique(c(endpointinputvar,"expname",groupvar1inputvar,groupvar2inputvar,groupvar3inputvar))
     #loopvariables <- loopvariables[!loopvariables%in% "exptile"]
-    #loopvariables <- loopvariables[!loopvariables%in% "expname"]
+    loopvariables <- loopvariables[!loopvariables%in% "none"]
     listvars2 <- listvars[!listvars%in% loopvariables]
     if(exposure_metric_split == "none") listvars2 <- c(listvars2,"expvalue")
     if ( length(listvars2) ==0 ){
@@ -452,6 +518,7 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
    
     survfit_by_endpoint <- list()
     logrank_test_by_endpoint <- list()
+    loopvariables <- loopvariables[loopvariables!="none"]
     data.long <- tidyr::unite(data.long,"loopvariable", !!!loopvariables, remove = FALSE)
     
     for (i in unique(data.long[,"loopvariable"]) |>
@@ -480,6 +547,13 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
       risktabledata[[variable]] <- .get_variable_value(variable,risktabledata$strata, surv_object, data.long)
     }
   }
+
+  if  (!is.null( levels(data.long[[colorinputvar]]))){
+    collevels <- levels(data.long[[colorinputvar]])
+    risktabledata[[colorinputvar]] <- factor(risktabledata[[colorinputvar]],
+                                             levels = collevels)
+    }
+
   if(nrisk_filterout0){
     risktabledata <- risktabledata |> 
       dplyr::filter(n.risk > 0)
@@ -515,13 +589,18 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
     for(variable in variables) {
       dfmedian[[variable]] <- .get_variable_value(variable, dfmedian$strata, surv_object, data.long)
     }
+    if  (!is.null( levels(data.long[[colorinputvar]]))){
+      collevels <- levels(data.long[[colorinputvar]])
+      dfmedian[[colorinputvar]] <- factor(dfmedian[[colorinputvar]],
+                                               levels = collevels)
+    }
   }
   }
   
   plotkm0 <-   ggplot2::ggplot(data.long,ggplot2::aes_string(time = time, status = status,
                                             color = colorinputvar, fill = fillinputvar,
                                             linetype = linetypeinputvar))+
-    ggplot2::geom_line(stat = "km",trans = km_trans)
+    ggplot2::geom_line(stat = "km",trans = km_trans, linewidth = km_linewidth)
   if(km_band){
     plotkm00 <-  plotkm0 +
       ggplot2::geom_ribbon(stat = "kmband", alpha=0.2, color = "transparent",
@@ -548,16 +627,16 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                            ggplot2::aes(x=time,label=value,y=keynumeric,time=NULL,status=NULL),
                 show.legend = FALSE,
                 size = nrisk_table_textsize, 
-                position = ggstance::position_dodgev(height =nrisk_position_dodge)
-      )+
+                position = ggstance::position_dodgev(height = nrisk_position_dodge))+
         ggplot2::geom_hline(yintercept = - nrisk_position_scaler *(
-        unique(c(seq(min(as.numeric(as.factor(risktabledatag$key))),max(as.numeric(as.factor(risktabledatag$key)))+1,1)))
+        unique(c(seq(min(as.numeric(as.factor(risktabledatag$key))),
+                     max(as.numeric(as.factor(risktabledatag$key)))+1,1)))
       )+nrisk_position_scaler/2 + nrisk_offset
       )
     }
 
   if(!nrisk_table_plot) {
-    plotkm1 <-  plotkm0 
+    plotkm1 <-  plotkm000 
   }
   
   
@@ -570,7 +649,7 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                            dplyr::mutate(none = "(all)"), 
                          ggplot2::aes(x     = km_median_table_pos_x,
                                       y     = (max(as.numeric(as.factor(get(!!color_fill))))+1)*0.09,
-                                      label = "Med. Surv. Time:"), 
+                                      label = "Median Event Time:"), 
                 hjust = km_median_table_pos_hjust, show.legend = FALSE, 
                 color="gray30",inherit.aes = FALSE)
     
@@ -582,7 +661,7 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                                            "{statusvar}" := NA), 
                            ggplot2::aes(    x = km_median_table_pos_x, y = 0.09*rev(as.numeric(as.factor(get(!!color_fill)))),
                                             label = paste0(get(!!color_fill), ": ",
-                                                           sprintf("%#.3g (%#.3g, %#.3g)",x1,x1lower,x1upper)
+                                                           gsub("NA","-",sprintf("%#.3g (%#.3g, %#.3g)",x1,x1lower,x1upper))
                                             )), 
                            hjust = km_median_table_pos_hjust,
                            show.legend = FALSE,inherit.aes = TRUE)
@@ -596,7 +675,7 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                                            "{statusvar}" := NA), 
                            ggplot2::aes(    x = km_median_table_pos_x, y = 0.09*(as.numeric(as.factor(get(!!color_fill)))),
                                             label = paste0(get(!!color_fill), ": ",
-                                                           sprintf("%#.3g (%#.3g, %#.3g)",x1,x1lower,x1upper)
+                                                           gsub("NA","-",sprintf("%#.3g (%#.3g, %#.3g)",x1,x1lower,x1upper))
                                             )), 
                            hjust = km_median_table_pos_hjust,
                            show.legend = FALSE,inherit.aes = TRUE)
@@ -644,8 +723,49 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
   if(km_median=="none"){
     plotkm1mt <- plotkm1
   }
+ if (all(exposure_metrics%in% c("none","")) )  show_exptile_values <- FALSE
+ if (all(exposure_metric_split%in% c("none")) )  show_exptile_values <- FALSE
+
+  if(show_exptile_values){
+    exptile_values_pos_x       <- ifelse(show_exptile_values_pos == "left",-Inf,Inf)
+    exptile_values_pos_x_hjust <- ifelse(show_exptile_values_pos == "left",0,1)
+
+    if(show_exptile_values_order=="reverse") {
+      plotkm1mtexp <- plotkm1mt +
+        ggplot2::geom_text(data = data.long.quantiles |>
+                             dplyr::mutate(none = "(all)",
+                                           "{timevar}" := NA,
+                                           "{statusvar}" := NA), 
+                           ggplot2::aes(x = exptile_values_pos_x,
+                                        y = 0.09*rev(as.numeric(as.factor(exptile))),
+                                        label = paste0(exptile, ": ",exprange
+                                        )), 
+                           hjust = exptile_values_pos_x_hjust,
+                           size = show_exptile_values_textsize,
+                           show.legend = FALSE,inherit.aes = TRUE)
+    }
+    if(show_exptile_values_order=="default") {
+      plotkm1mtexp <- plotkm1mt +
+        ggplot2::geom_text(data = data.long.quantiles |>
+                             dplyr::mutate(none = "(all)",
+                                           "{timevar}" := NA,
+                                           "{statusvar}" := NA), 
+                           ggplot2::aes(x = exptile_values_pos_x,
+                                        y = 0.09*(as.numeric(as.factor(exptile))),
+                                        label = paste0(exptile, ": ",exprange
+                                        )), 
+                           hjust = exptile_values_pos_x_hjust,
+                           size = show_exptile_values_textsize,
+                           show.legend = FALSE,inherit.aes = TRUE)
+    }
+   
+  }
+  if(!show_exptile_values){
+    plotkm1mtexp <- plotkm1mt
+  }
   
-  plotkm2 <- plotkm1mt +
+  
+  plotkm2 <- plotkm1mtexp +
     ggh4x::facet_nested_wrap(facet_formula,ncol= facet_ncol ,
                       strip = ggh4x::strip_split(position=facet_strip_position))+
     ggplot2::scale_y_continuous(position = km_yaxis_position,
@@ -657,40 +777,61 @@ ggkmrisktable <- function(data = lung_long, # long format filter to Endpoint of 
                                           add =c(0, 0)))+
     ggplot2::scale_x_continuous( breaks =c(unique(risktabledatag$time))) +
     ggplot2::theme_bw()+
-    ggplot2::theme(legend.position = "top",strip.placement = "outside",
-          axis.title.y = ggplot2::element_blank())+
+    ggplot2::theme(legend.position = "top",strip.placement = "outside")+
     ggplot2::labs(color="",fill="",linetype="",
          x = xlab,y = ylab) 
   if(km_logrank_pvalue){
     
     km_logrank_pvalue_x <- ifelse(km_logrank_pvalue_pos == "left", -Inf,Inf)
     km_logrank_pvalue_x_hjust <- ifelse(km_logrank_pvalue_pos == "left",0,1)
-    
+
     plotkm3 <-  plotkm2 +
       ggplot2::geom_text(data=logrank_test_by_endpoint,
                          ggplot2::aes(x = km_logrank_pvalue_x,
-                                      y = Inf,label = pval.txt),
+                                      y = Inf,label =
+                            ifelse(pval < km_logrank_pvalue_cutoff,
+                                   paste0("p < ",km_logrank_pvalue_cutoff),
+                                   paste0("p = ", round(pval,km_logrank_pvalue_digits)))
+                            ),
                          vjust = 1, hjust = km_logrank_pvalue_x_hjust, color = "gray30",
-                         inherit.aes = FALSE)
+                         inherit.aes = FALSE,
+                         size = km_logrank_pvalue_textsize)
     plotkm <- plotkm3
   } 
   if(!km_logrank_pvalue) {
     plotkm <- plotkm2
   }
   if(!theme_certara){
-    plotkm +
+  pf <-  plotkm +
       ggplot2::scale_colour_manual( values = tableau10,drop=FALSE,na.value = "grey50")+
       ggplot2::scale_fill_manual(   values = tableau10,drop=FALSE,na.value = "grey50")
   }
   if(theme_certara){
-    plotkm +
-      ggplot2::scale_colour_manual(values = c( "#4682AC","#FDBB2F","#EE3124" ,"#336343","#7059a6", "#803333"),
+    pf <-  plotkm +
+      ggplot2::scale_colour_manual(values = c( "#4682AC","#FDBB2F","#EE3124","#336343","#7059a6", "#803333",
+                                               "#2F71FD","#093B6D","#EF761B","#279594"),
                                    drop=FALSE,na.value = "grey50")+
-      ggplot2::scale_fill_manual(  values = c( "#4682AC","#FDBB2F","#EE3124" ,"#336343","#7059a6", "#803333"),
+      ggplot2::scale_fill_manual(  values = c( "#4682AC","#FDBB2F","#EE3124","#336343","#7059a6", "#803333",
+                                               "#2F71FD","#093B6D","#EF761B","#279594"),
                                    drop=FALSE,na.value = "grey50")+
       ggplot2::theme(strip.background = ggplot2::element_rect(fill="#475c6b"),
                      strip.text =  ggplot2::element_text(face = "bold",color = "white"))
     
   }
+  if(!return_list){
+    pf }
+  if(return_list){
+    pf <- list(data.long,
+               risktabledatag,
+               dfmedian,
+               data.long.quantiles,
+               logrank_test_by_endpoint,
+               - nrisk_position_scaler *(
+                 unique(c(seq(min(as.numeric(as.factor(risktabledatag$key))),
+                              max(as.numeric(as.factor(risktabledatag$key)))+1,1)))
+               )+nrisk_position_scaler/2 + nrisk_offset,
+               pf)
+  }
+  pf
 }
 

@@ -78,17 +78,27 @@ mean.n <- function(x, nroundlabel = 2, labeltrans =c("none","exp") ){
   return(c(y = meanxvalue, label = meanxlabel )) 
 }
 
-give.n <- function(x, nposition = c("min","max","below","up"),
+
+give.n <- function(x,
+                   nposition = c("min","max","below","up","fixed","mean","median"),
                    mult = 1, add = 0
 ){
-  if ( nposition == "below"){
+  if (nposition == "min"){
+    yposition <- min(x)*mult + add 
+  } else if (nposition == "max") {
+    yposition <- max(x)*mult + add 
+  } else if (nposition == "below")  {
     yposition <- -Inf
   } else if (nposition == "up")  {
     yposition <- Inf
-  } else if (nposition == "min"){
-    yposition <- min(x)*mult + add 
-  } else 
-    yposition <- max(x)*mult + add 
+  } else if (nposition == "fixed") {
+    yposition <- add
+  } else if (nposition == "mean")  {
+    yposition <- mean(x, na.rm = TRUE)*mult + add
+  } else if (nposition == "median")  {
+    yposition <- median(x, na.rm = TRUE)*mult + add
+  }
+  else yposition <- 0
   return(c(y = yposition,  label = length(x))) 
 }
 
@@ -184,10 +194,10 @@ manual_scale <- function(aesthetic, values = NULL, ...) {
   names(items) <- items
   items <- c("None",items)
   if ( !is.null(x) ){
-    items <- c(items, "yvars","yvalues") 
+    items <- c(items, "xvars","xvalues", "yvars","yvalues") 
   }
   if ( !is.null(y) ){
-    items <- c(items, "xvars","xvalues") 
+    items <- c(items, "xvars","xvalues", "yvars","yvalues") 
   }
   if (!is.null(pastevarin) && length(pastevarin) > 1 ){
     nameofcombinedvariables<- paste(as.character(pastevarin),collapse="_",sep="") 

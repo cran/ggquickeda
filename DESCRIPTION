@@ -1,7 +1,7 @@
 Package: ggquickeda
 Title: Quickly Explore Your Data Using 'ggplot2' and 'table1' Summary
         Tables
-Version: 0.3.1
+Version: 0.3.2
 Authors@R: c(
     person("Samer", "Mouksassi", email = "samermouksassi@gmail.com",
       role = c("aut", "cre"),comment = c(ORCID = "https://orcid.org/0000-0002-7152-6654")),
@@ -22,27 +22,28 @@ URL: https://github.com/smouksassi/ggquickeda,
         https://smouksassi.github.io/ggquickeda/
 BugReports: https://github.com/smouksassi/ggquickeda/issues
 Depends: R (>= 4.1.0)
-Imports: colourpicker, dplyr, data.table, DT, Formula, GGally (>=
-        2.1.0), ggbeeswarm, ggh4x, ggplot2 (>= 3.4.0), ggpmisc, ggrepel
-        (>= 0.7.0), ggpubr, ggstance, glue, gridExtra, Hmisc, markdown,
-        methods, plotly, quantreg, rlang, scales, shiny (>= 1.0.4),
-        shinyjs (>= 1.1), shinyjqui, stringr, survival, survminer,
-        tidyr, table1 (>= 1.4.2), zoo, shinyFiles, RPostgres, forcats,
-        ggridges, rms, tibble, patchwork (>= 1.2.0)
+Imports: colourpicker, dplyr, data.table, DT, Formula, forcats, GGally
+        (>= 2.1.0), ggbeeswarm, ggh4x, ggplot2 (>= 3.4.0), ggpmisc,
+        ggrepel (>= 0.7.0), ggridges, ggpubr, ggstance, glue,
+        gridExtra, Hmisc, markdown, methods, patchwork (>= 1.2.0),
+        plotly, quantreg, rlang, rms, RPostgres, scales, shiny (>=
+        1.0.4), shinyFiles, shinyjs (>= 1.1), shinyjqui, stringr,
+        survival, survminer, tibble, tidyr, table1 (>= 1.4.2), zoo
 Suggests: knitr, rmarkdown
 License: MIT + file LICENSE
 SystemRequirements: pandoc with https support
 LazyData: true
 VignetteBuilder: knitr
-RoxygenNote: 7.3.0
+RoxygenNote: 7.3.3
 Encoding: UTF-8
 NeedsCompilation: no
-Packaged: 2024-01-15 09:36:53 UTC; smouksas
-Author: Samer Mouksassi [aut, cre] (<https://orcid.org/0000-0002-7152-6654>),
+Packaged: 2025-09-15 20:35:48 UTC; smouksassi
+Author: Samer Mouksassi [aut, cre] (ORCID:
+    <https://orcid.org/0000-0002-7152-6654>),
   Dean Attali [aut],
   James Craig [aut] (implemented bookmarking and created pkgdown website),
   Benjamin Rich [aut] (provided summary stats tables table1 tab code),
   Michael Sachs [aut] (provided ggkm initial code)
 Maintainer: Samer Mouksassi <samermouksassi@gmail.com>
 Repository: CRAN
-Date/Publication: 2024-01-15 10:20:02 UTC
+Date/Publication: 2025-09-15 21:20:02 UTC

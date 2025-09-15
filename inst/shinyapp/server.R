@@ -2050,7 +2050,7 @@ function(input, output, session) {
     df <- finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     if ( is.null(df) || is.null(input$x)  ) return(NULL)
-    if (all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] )) ||
+    if (all(is.factor(df[,"xvalues"] ) || is.character(df[,"xvalues"] )) ||
         (length(df[,"xvalues"][!is.na( df[,"xvalues"])] ) <= 0)
     ) return(NULL)
       xvalues <- df[,"xvalues"][!is.na( df[,"xvalues"])]
@@ -2065,20 +2065,20 @@ function(input, output, session) {
   outputOptions(output, "xaxiszoomslider", suspendWhenHidden=FALSE)
   
   output$lowerx <- renderUI({
-    df <-finalplotdata()
+    df <- finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     xmin <- NA
-    if (!all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] ))){
+    if (!all(is.factor(df[,"xvalues"] ) || is.character(df[,"xvalues"] ))){
       xmin <- min(df[,"xvalues"],na.rm = TRUE)}
       if(input$xaxisscale=="logx" && xmin<=0) xmin <- 0.01
       numericInput("lowerxin",label = "Lower X Limit", 
                    value = xmin, min=NA, max=NA, width='50%')
   })
   output$upperx <- renderUI({
-    df <-finalplotdata()
+    df <- finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     xmax <- NA
-    if (!all(is.factor(df[,"xvalues"] ) | is.character(df[,"xvalues"] ))){
+    if (!all(is.factor(df[,"xvalues"] ) || is.character(df[,"xvalues"] ))){
       xmax <- max(df[,"xvalues"],na.rm = TRUE)}
     if(input$xaxisscale=="logx"&& xmax<=0) xmax <- 0.1
     numericInput("upperxin",label = "Upper X Limit",
@@ -2091,7 +2091,7 @@ function(input, output, session) {
     df <- finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     if ( is.null(df) || is.null(input$y)  ) return(NULL)
-    if (all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] )) ||
+    if (all(is.factor(df[,"yvalues"] ) || is.character(df[,"yvalues"] )) ||
         (length(df[,"yvalues"][!is.na( df[,"yvalues"])] ) <= 0)
     ) return(NULL)
     yvalues <- df[,"yvalues"][!is.na( df[,"yvalues"])]
@@ -2110,7 +2110,7 @@ function(input, output, session) {
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     ymin <- NA
-    if (!all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] ))){
+    if (!all(is.factor(df[,"yvalues"] ) || is.character(df[,"yvalues"] ))){
       ymin <- min(df[,"yvalues"],na.rm = TRUE)}
     if(input$yaxisscale=="logy" && ymin<=0) ymin <- 0.01
     numericInput("loweryin",label = "Lower Y Limit",
@@ -2120,7 +2120,7 @@ function(input, output, session) {
     df <-finalplotdata()
     validate(need(!is.null(df), "Please select a data set"))
     ymax <- NA
-    if (!all(is.factor(df[,"yvalues"] ) | is.character(df[,"yvalues"] ))){
+    if (!all(is.factor(df[,"yvalues"] ) || is.character(df[,"yvalues"] ))){
       ymax <- max(df[,"yvalues"],na.rm = TRUE)}
     if(input$yaxisscale=="logy" && ymax<=0) ymax <- 0.1
     numericInput("upperyin",label = "Upper Y Limit",
@@ -2872,19 +2872,19 @@ function(input, output, session) {
         
         if ( input$histogramaddition=="Density") { 
           if ( input$histogrambinwidth =="None") {
-            p <- p + geom_histogram(aes(y=..density..),
+            p <- p + geom_histogram(aes(y=after_stat(density)),
                                     alpha=input$histogramalpha,
                                     bins = input$histonbins,
                                     position =input$positionhistogram)
           }
           if ( input$histogrambinwidth =="userbinwidth") {
-            p <- p + geom_histogram(aes(y=..density..),
+            p <- p + geom_histogram(aes(y=after_stat(density)),
                                     alpha=input$histogramalpha,
                                     binwidth = input$histobinwidth,
                                     position =input$positionhistogram)
           }
           if ( input$histogrambinwidth =="autobinwidth") {
-            p <- p + geom_histogram(aes(y=..density..),
+            p <- p + geom_histogram(aes(y=after_stat(density)),
                                     alpha=input$histogramalpha,
                                     binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )},
                                     position =input$positionhistogram)
@@ -2893,19 +2893,19 @@ function(input, output, session) {
         
         if ( input$histogramaddition=="ncounts") { 
           if ( input$histogrambinwidth =="None") {
-            p <- p + geom_histogram(aes(y=..ncount..),
+            p <- p + geom_histogram(aes(y=after_stat(ncount)),
                                     alpha=input$histogramalpha,
                                     bins = input$histonbins,
                                     position =input$positionhistogram)
           }
           if ( input$histogrambinwidth =="userbinwidth") {
-            p <- p + geom_histogram(aes(y=..ncount..),
+            p <- p + geom_histogram(aes(y=after_stat(ncount)),
                                     alpha=input$histogramalpha,
                                     binwidth = input$histobinwidth,
                                     position =input$positionhistogram)
           }
           if ( input$histogrambinwidth =="autobinwidth") {
-            p <- p + geom_histogram(aes(y=..ncount..),
+            p <- p + geom_histogram(aes(y=after_stat(ncount)),
                                     alpha=input$histogramalpha,
                                     binwidth = function(x) { 2 * IQR(x) / (length(x)^(1/3)  )},
                                     position =input$positionhistogram)
@@ -3189,13 +3189,15 @@ function(input, output, session) {
         if (input$groupin != 'None')
           p <- p + aes_string(group=input$groupin)
 
-        if ( input$barplotaddition && !input$barplotpercent){
+        if ( input$barplotaddition &&
+             input$barplotlabeltype=='barplotcount' ){
           p <- p + 
             geom_bar(alpha=input$barplotfillalpha,
                      position = eval(parse(text=input$positionbar)))+
             ylab("Count")
           
-          if ( input$barplotlabel && !input$ignorebarplotlabelcolor){
+          if ( input$barplotlabel && !input$ignorebarplotlabelcolor
+               && input$barplotlabeltype=='barplotcount'){
             p <- p +   geom_text(aes(y = ((..count..)),
                                     label = ((..count..))),
                                 stat = "count",
@@ -3205,7 +3207,8 @@ function(input, output, session) {
                                 position = eval(parse(text=input$positionbar)),
                                 show.legend = input$barplotlabellegend)
           } #input$barplotlabel && !input$ignorebarplotlabelcolor
-            if ( input$barplotlabel && input$ignorebarplotlabelcolor){
+            if ( input$barplotlabel && input$ignorebarplotlabelcolor
+                 && input$barplotlabeltype=='barplotcount'){
               p <- p +   geom_text(aes(y = ((..count..)),
                                        label = ((..count..))),
                                    stat = "count",
@@ -3218,27 +3221,47 @@ function(input, output, session) {
             } #input$barplotlabel && input$ignorebarplotlabelcolor 
           
         }
-        if ( input$barplotaddition && input$barplotpercent){
+        if ( input$barplotaddition &&
+             input$barplotlabeltype!='barplotcount'){
           p <- p +  
             geom_bar(alpha=input$barplotfillalpha,
                      aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..])) ,
-                     position = eval(parse(text=input$positionbar)))+
-            ylab("Percentage")    
+                     position = eval(parse(text=input$positionbar)))
           
           if ( input$barplotlabel && !input$ignorebarplotlabelcolor){
             if(input$positionbar!="position_fill(vjust = 0.5)"){
-              p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
-                                      label = scales::percent(
-                                        ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
-                                     accuracy = 10^-(input$nroundbarplotpercentdigits))),
-                                  stat = "count",
-                                  vjust = input$barplotlabelvjust,
-                                  hjust = input$barplotlabelhjust,
-                                  size = input$barplotlabelsize,
-                                  position = eval(parse(text=input$positionbar)),
-                                  show.legend = input$barplotlabellegend)
+              if(input$barplotlabeltype=='barplotpercent'){
+                p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                       label = scales::percent(
+                                         ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                         accuracy = 10^-(input$nroundbarplotpercentdigits))),
+                                   stat = "count",
+                                   vjust = input$barplotlabelvjust,
+                                   hjust = input$barplotlabelhjust,
+                                   size = input$barplotlabelsize,
+                                   position = eval(parse(text=input$positionbar)),
+                                   show.legend = input$barplotlabellegend)+
+                  ylab("Percentages")
+              }
+              if(input$barplotlabeltype=='barplotcountpercent'){
+                p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                   label = paste0(..count..,"\n",
+                                                  scales::percent(
+                                                    ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                                    accuracy = 10^-(input$nroundbarplotpercentdigits)))),
+                                   stat = "count",
+                                   vjust = input$barplotlabelvjust,
+                                   hjust = input$barplotlabelhjust,
+                                   size = input$barplotlabelsize,
+                                   position = eval(parse(text=input$positionbar)),
+                                   show.legend = input$barplotlabellegend)+
+                  ylab("Counts/Percentages")
+              }
             }
+            
+            
             if(input$positionbar=="position_fill(vjust = 0.5)"){
+              if(input$barplotlabeltype=='barplotpercent'){
               p <- p + geom_text(aes(by=xvalues,
                                      label = scales::percent(..prop..,
                                        accuracy = 10^-(input$nroundbarplotpercentdigits))
@@ -3248,40 +3271,95 @@ function(input, output, session) {
                                   hjust = input$barplotlabelhjust,
                                   size = input$barplotlabelsize,
                                   position = eval(parse(text=input$positionbar)),
-                                  show.legend = input$barplotlabellegend)
+                                  show.legend = input$barplotlabellegend)+
+                ylab("Percentages out of 100%")
+              }
+              if(input$barplotlabeltype=='barplotcountpercent'){
+                p <- p + geom_text(aes(by=xvalues,
+                                       label = paste0(..count..,"\n",
+                                                      scales::percent(..prop..,
+                                                               accuracy = 10^-(input$nroundbarplotpercentdigits))
+                                       )
+                ),
+                stat = "prop",
+                vjust = input$barplotlabelvjust,
+                hjust = input$barplotlabelhjust,
+                size = input$barplotlabelsize,
+                position = eval(parse(text=input$positionbar)),
+                show.legend = input$barplotlabellegend)+
+                  ylab("Counts/Percentages out of 100%")
+              }
             }
-            
           }
+          
           if ( input$barplotlabel && input$ignorebarplotlabelcolor){
             if(input$positionbar!="position_fill(vjust = 0.5)"){
-              p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
-                                     label = scales::percent(
-                                       ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
-                                       accuracy = 10^-(input$nroundbarplotpercentdigits))),
-                                 stat = "count",
-                                 vjust = input$barplotlabelvjust,
-                                 hjust = input$barplotlabelhjust,
-                                 size = input$barplotlabelsize,
-                                 position = eval(parse(text=input$positionbar)),
-                                 show.legend = input$barplotlabellegend,
-                                 colour = input$barplotlabelcolor)
+              if(input$barplotlabeltype=='barplotpercent'){
+                p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                       label = scales::percent(
+                                         ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                         accuracy = 10^-(input$nroundbarplotpercentdigits))),
+                                   stat = "count",
+                                   vjust = input$barplotlabelvjust,
+                                   hjust = input$barplotlabelhjust,
+                                   size = input$barplotlabelsize,
+                                   position = eval(parse(text=input$positionbar)),
+                                   show.legend = input$barplotlabellegend,
+                                   colour = input$barplotlabelcolor)+
+                  ylab("Percentages")
+              }
+              if(input$barplotlabeltype=='barplotcountpercent'){
+                p <- p + geom_text(aes(y = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                       label = paste0(..count..,"\n",
+                                                      scales::percent(
+                                                        ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..]),
+                                                        accuracy = 10^-(input$nroundbarplotpercentdigits)))),
+                                   stat = "count",
+                                   vjust = input$barplotlabelvjust,
+                                   hjust = input$barplotlabelhjust,
+                                   size = input$barplotlabelsize,
+                                   position = eval(parse(text=input$positionbar)),
+                                   show.legend = input$barplotlabellegend,
+                                   colour = input$barplotlabelcolor)+
+                  ylab("Counts/Percentages")
+              }
             }
+            
+            
             if(input$positionbar=="position_fill(vjust = 0.5)"){
-              p <- p + geom_text(aes(by=xvalues,
-                                     label = scales::percent(..prop..,
-                                     accuracy = 10^-(input$nroundbarplotpercentdigits))
-                                     ),
-                                 stat = "prop",
-                                 vjust = input$barplotlabelvjust,
-                                 hjust = input$barplotlabelhjust,
-                                 size = input$barplotlabelsize,
-                                 position = eval(parse(text=input$positionbar)),
-                                 show.legend = input$barplotlabellegend,
-                                 colour = input$barplotlabelcolor)
+              if(input$barplotlabeltype=='barplotpercent'){
+                p <- p + geom_text(aes(by=xvalues,
+                                       label = scales::percent(..prop..,
+                                                               accuracy = 10^-(input$nroundbarplotpercentdigits))
+                ),
+                stat = "prop",
+                vjust = input$barplotlabelvjust,
+                hjust = input$barplotlabelhjust,
+                size = input$barplotlabelsize,
+                position = eval(parse(text=input$positionbar)),
+                show.legend = input$barplotlabellegend,
+                colour = input$barplotlabelcolor)+
+                  ylab("Percentages out of 100%")
+              }
+              if(input$barplotlabeltype=='barplotcountpercent'){
+                p <- p + geom_text(aes(by=xvalues,
+                                       label = paste0(..count..,"\n",
+                                                      scales::percent(..prop..,
+                                                                      accuracy = 10^-(input$nroundbarplotpercentdigits))
+                                       )
+                ),
+                stat = "prop",
+                vjust = input$barplotlabelvjust,
+                hjust = input$barplotlabelhjust,
+                size = input$barplotlabelsize,
+                position = eval(parse(text=input$positionbar)),
+                show.legend = input$barplotlabellegend,
+                colour = input$barplotlabelcolor)+
+                  ylab("Counts/Percentages out of 100%")
+              }
             }
           }
-
-        }
+}
       }# not numericx
        }#null y
       if(is.null(input$x)){
@@ -3307,7 +3385,7 @@ function(input, output, session) {
           if (input$groupin != 'None')
             p <- p + aes_string(group=input$groupin)
           
-          if ( input$barplotaddition && !input$barplotpercent){
+          if ( input$barplotaddition ){ #&& !input$barplotpercent
             p <- p + 
               geom_bar(alpha=input$barplotfillalpha,
                        position = eval(parse(text=input$positionbar))) +
@@ -3336,7 +3414,7 @@ function(input, output, session) {
             }
 
           }
-          if ( input$barplotaddition && input$barplotpercent){
+          if ( input$barplotaddition ){ #&& input$barplotpercent
             p <- p+  
               geom_bar(alpha=input$barplotfillalpha,
                        aes(x = ((..count..)/tapply(..count..,..PANEL..,sum)[..PANEL..])) ,
@@ -3501,7 +3579,7 @@ function(input, output, session) {
         p <- p + aes_string(group=input$groupin)
       if(!is.null(plotdata[,"xvalues"])){
       if (input$groupin == 'None' && !is.numeric(plotdata[,"xvalues"]) 
-          && input$colorin == 'None'){
+          && input$colorin == 'None' && input$fillin == 'None'){
         p <- p + aes(group=1L)
       }
       }
@@ -3538,15 +3616,15 @@ function(input, output, session) {
           positionpoints <-  paste0("position_dodgev(height=",input$pointdodgeheight,")")
         }
         if (input$jitterdirection=="quasirandom"){
-          positionpoints <-  paste0("position_quasirandom(groupOnX = ",input$groupOnX,
-                                    ", dodge.width = ",input$dodge.width,
+          positionpoints <-  paste0("position_quasirandom(",
+                                    "dodge.width = ",input$dodge.width,
                                     ", width = ",input$qr.width,
                                     ", varwidth = ",input$qr.varwidth,
                                     ")")
         }
         if (input$jitterdirection=="beeswarm"){
-          positionpoints <-  paste0("position_beeswarm(groupOnX = ",input$groupOnX,
-                                    ", dodge.width = ",input$dodge.width,
+          positionpoints <-  paste0("position_beeswarm(",
+                                    "dodge.width = ",input$dodge.width,
                                     ")")
         }
         
@@ -3632,25 +3710,16 @@ function(input, output, session) {
             p <- p + geom_point(size=input$pointsizes,alpha=input$pointstransparency,colour=input$colpoint,
                                 shape=translate_shape_string(input$pointshapes),
                                 position=eval(parse(text=positionpoints)))
-          
-          
         }
-        
-        
-        
       }
-      
-      if (input$line=="Lines"){
-        
+      if (input$line=="Lines"&& !input$linepath){
         if (input$linetypein != 'None' && !input$lineignorelinetype){
-          
           if (input$pointsizein == 'None'&& !input$lineignorecol)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency)
           if (input$pointsizein != 'None'&& !input$lineignorecol&& !input$lineignoresize)
             p <- p + geom_line(alpha=input$linestransparency)
           if (input$pointsizein != 'None'&& !input$lineignorecol&& input$lineignoresize)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency)
-          
           if (input$pointsizein == 'None'&&input$lineignorecol)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,colour=input$colline)
           if (input$pointsizein != 'None'&& input$lineignorecol&& !input$lineignoresize)
@@ -3658,9 +3727,7 @@ function(input, output, session) {
           if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,colour=input$colline)
         }
-        
         if (input$linetypein != 'None' && input$lineignorelinetype){
-          
           if (input$pointsizein == 'None'&& !input$lineignorecol)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
           if (input$pointsizein != 'None'&& !input$lineignorecol&& !input$lineignoresize)
@@ -3675,7 +3742,6 @@ function(input, output, session) {
           if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
         }
-        
         if(input$linetypein == 'None' ){
           if (input$pointsizein == 'None'&& !input$lineignorecol)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
@@ -3684,17 +3750,60 @@ function(input, output, session) {
           if (input$pointsizein != 'None'&& !input$lineignorecol&& input$lineignoresize)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
           
-          if (input$pointsizein == 'None'&&input$lineignorecol)
+          if (input$pointsizein == 'None'&& input$lineignorecol)
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
           if (input$pointsizein != 'None'&& input$lineignorecol&& !input$lineignoresize)
             p <- p + geom_line(alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
           if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
             p <- p + geom_line(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
         }
-        
-        
       }
-      
+      if (input$line=="Lines" && input$linepath){
+        if (input$linetypein != 'None' && !input$lineignorelinetype){
+          if (input$pointsizein == 'None'&& !input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& input$lineignoresize)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency)
+          if (input$pointsizein == 'None'&&input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,colour=input$colline)
+        }
+        if (input$linetypein != 'None' && input$lineignorelinetype){
+          if (input$pointsizein == 'None'&& !input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency,linetype=input$linetypes)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& input$lineignoresize)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
+          
+          if (input$pointsizein == 'None'&&input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+        }
+        if(input$linetypein == 'None' ){
+          if (input$pointsizein == 'None'&& !input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency,linetype=input$linetypes)
+          if (input$pointsizein != 'None'&& !input$lineignorecol&& input$lineignoresize)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes)
+          
+          if (input$pointsizein == 'None'&&input$lineignorecol)
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol&& !input$lineignoresize)
+            p <- p + geom_path(alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+          if (input$pointsizein != 'None'&& input$lineignorecol && input$lineignoresize )
+            p <- p + geom_path(size=input$linesize,alpha=input$linestransparency,linetype=input$linetypes,colour=input$colline)
+        }
+      }
       #### Boxplot Section START
       
       if (input$boxplotaddition) {
@@ -4582,7 +4691,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm", 
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="bottom",size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
                                                            signif(..adj.r.squared.., digits = 2), sep = ""),
                                              group=NULL,weight=!!aesweight),
@@ -4595,7 +4704,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm", force = 3,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="top",size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              group=NULL,weight=!!aesweight),
@@ -4605,7 +4714,7 @@ function(input, output, session) {
               p <- p+ ggpmisc::stat_fit_tidy(method = "lm",
                                          method.args = list(formula = y ~ x, weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
+                                         label.x = "right" ,label.y = "bottom",size=input$smoothtextsize,
                                          aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
                                                                    "%+-%", signif(..Intercept_se.. , digits = 2),
                                                                    "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
@@ -4681,7 +4790,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="bottom",size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
                                                            signif(..adj.r.squared.., digits = 2), sep = ""),
                                              group=NULL,weight=!!aesweight),
@@ -4694,7 +4803,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm", col=colsmooth,force = 3,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="top",size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              group=NULL,weight=!!aesweight),
@@ -4704,7 +4813,7 @@ function(input, output, session) {
               p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,size=input$smoothtextsize,
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
+                                             label.x = "right" ,label.y = "bottom",size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
                                                                "%+-%", signif(..Intercept_se.. , digits = 2),
                                                                "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
@@ -4782,7 +4891,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm",
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=-Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="bottom",size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
                                                            signif(..adj.r.squared.., digits = 2), sep = ""),
                                              weight=!!aesweight),
@@ -4795,7 +4904,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm", force = 3,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf,size=input$smoothtextsize,
+                                         label.x="left" ,label.y="top",size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              weight=!!aesweight),
@@ -4806,7 +4915,7 @@ function(input, output, session) {
               p <- p+ ggpmisc::stat_fit_tidy(method = "lm",
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf,size=input$smoothtextsize,
+                                             label.x = "right" ,label.y = "bottom",size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
                                                                "%+-%", signif(..Intercept_se.. , digits = 2),
                                                                "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
@@ -4884,7 +4993,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm",col=colsmooth,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=-Inf, size=input$smoothtextsize,
+                                         label.x="left" ,label.y="bottom", size=input$smoothtextsize,
                                          aes(label = paste("R[adj]^2==",
                                                            signif(..adj.r.squared.., digits = 2), sep = ""),
                                              weight=!!aesweight),
@@ -4897,7 +5006,7 @@ function(input, output, session) {
                 ggpmisc::stat_fit_glance(method = "lm",col=colsmooth, force = 3,
                                          method.args = list(formula = y ~ x , weights = quote(weight)),
                                          geom = "text_repel",segment.color=NA,direction="y",
-                                         label.x=-Inf ,label.y=Inf, size=input$smoothtextsize,
+                                         label.x="left" ,label.y="top", size=input$smoothtextsize,
                                          aes(label = paste("Slope P-value = ",
                                                            signif(..p.value.., digits = 3), sep = ""),
                                              weight=!!aesweight),
@@ -4908,7 +5017,7 @@ function(input, output, session) {
               p <- p+ ggpmisc::stat_fit_tidy(method = "lm",col=colsmooth,
                                              method.args = list(formula = y ~ x, weights = quote(weight)),
                                              geom = "text_repel",segment.color=NA,direction="y",
-                                             label.x = Inf ,label.y = -Inf, size=input$smoothtextsize,
+                                             label.x = "right" ,label.y = "bottom", size=input$smoothtextsize,
                                              aes(label = paste("Intercept~`=`~", signif(..Intercept_estimate.. , digits = 3),
                                                                "%+-%", signif(..Intercept_se.. , digits = 2),
                                                                "~Slope~`=`~", signif(..x_estimate.. , digits = 3),
@@ -5562,11 +5671,11 @@ function(input, output, session) {
         cortextxpos <- input$cortextxpos
         cortextypos <- input$cortextypos
 
-        if (is.null(cortextxpos) || is.na(cortextxpos)  ) cortextxpos <- Inf
-        if (is.null(cortextypos) || is.na(cortextypos) ) cortextypos <- Inf
+        if (is.null(cortextxpos) || is.na(cortextxpos)  ) cortextxpos <- "right"
+        if (is.null(cortextypos) || is.na(cortextypos) ) cortextypos <- "top"
         
-        label.x.value <- ifelse(input$geomcorr=="text",cortextxpos,Inf)
-        label.y.value <- ifelse(input$geomcorr=="text",cortextypos,Inf)
+        label.x.value <- ifelse(input$geomcorr=="text",cortextxpos,"right")
+        label.y.value <- ifelse(input$geomcorr=="text",cortextypos,"top")
         
         if(input$addcorrcoeff&&!input$addcorrcoeffignoregroup) {
           
@@ -5633,11 +5742,11 @@ function(input, output, session) {
         cortextxpos <- input$cortextxpos
         cortextypos <- input$cortextypos
         
-        if (is.null(cortextxpos) || is.na(cortextxpos) ) cortextxpos <- Inf
-        if (is.null(cortextypos) || is.na(cortextypos) ) cortextypos <- Inf
+        if (is.null(cortextxpos) || is.na(cortextxpos)  ) cortextxpos <- "right"
+        if (is.null(cortextypos) || is.na(cortextypos) ) cortextypos <- "top"
         
-        label.x.value <- ifelse(input$geomcorr=="text",cortextxpos,Inf)
-        label.y.value <- ifelse(input$geomcorr=="text",cortextypos,Inf)
+        label.x.value <- ifelse(input$geomcorr=="text",cortextxpos,"right")
+        label.y.value <- ifelse(input$geomcorr=="text",cortextypos,"top")
         
         if(input$addcorrcoeff && !input$addcorrcoeffignoregroup) {
           
@@ -6644,7 +6753,7 @@ function(input, output, session) {
           !inherits(plotdata[,"xvalues"], "POSIXct")
           ) 
         if(!input$x_label_text_parse){
-          p <- p  + scale_x_discrete(labels = label_wrap(input$y_label_text_width),
+          p <- p  + scale_x_discrete(labels = label_wrap(input$x_label_text_width),
                                      expand = expansionobjx)
         }
         if(input$x_label_text_parse){

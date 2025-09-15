@@ -2,50 +2,72 @@
 % Please edit documentation in R/gglogisticexpdist.R
 \name{gglogisticexpdist}
 \alias{gglogisticexpdist}
-\title{Create a logistic fit plot}
+\title{Create a logistic fit vs exposure(s)plot}
 \usage{
 gglogisticexpdist(
   data = effICGI,
   response = "response",
   endpoint = "Endpoint",
+  model_type = c("logistic"),
   DOSE = "DOSE",
   color_fill = "DOSE",
+  logistic_by_color_fill = FALSE,
   exposure_metrics = c("AUC", "CMAX"),
   exposure_metric_split = c("median", "tertile", "quartile", "none"),
   exposure_metric_soc_value = -99,
   exposure_metric_plac_value = 0,
-  exposure_distribution = c("distributions", "lineranges", "none"),
+  exposure_distribution = c("distributions", "lineranges", "boxplots", "none"),
+  exposure_distribution_percent = TRUE,
+  exposure_distribution_percent_text_size = 5,
   dose_plac_value = "Placebo",
   xlab = "Exposure Values",
   ylab = "Probability of Response",
+  points_alpha = 0.2,
+  points_show = TRUE,
+  prob_obs_byexptile = TRUE,
+  prob_obs_byexptile_plac = TRUE,
+  prob_obs_byexptile_group = "none",
   prob_text_size = 5,
   prob_obs_bydose = TRUE,
-  N_text_size = 5,
+  prob_obs_bydose_plac = FALSE,
+  Nresp_Ntot_show = TRUE,
+  Nresp_Ntot_size = 5,
+  Nresp_Ntot_ypos = c("with percentages", "top"),
+  Nresp_Ntot_sep = "/",
+  binlimits_show = TRUE,
   binlimits_text_size = 5,
   binlimits_ypos = 0,
-  binlimits_color = "gray70",
+  binlimits_color = "#B3B3B380",
   dist_position_scaler = 0.2,
   dist_offset = 0,
+  dist_scale = 0.9,
   lineranges_ypos = 0.2,
   lineranges_dodge = 0.15,
+  lineranges_doselabel = FALSE,
+  proj_bydose = TRUE,
   yproj = TRUE,
   yproj_xpos = 0,
   yproj_dodge = 0.2,
   yaxis_position = c("left", "right"),
   facet_formula = NULL,
-  theme_certara = TRUE
+  theme_certara = TRUE,
+  return_list = FALSE
 )
 }
 \arguments{
-\item{data}{Data to use with multiple endpoints stacked into Endpoint(endpoint name), response 0/1}
+\item{data}{Data to use with multiple endpoints stacked into response (values), Endpoint(endpoint name)}
 
-\item{response}{name of the column holding the values response 0/1}
+\item{response}{name of the column holding the response values}
 
 \item{endpoint}{name of the column holding the name/key of the endpoint default to \code{Endpoint}}
+
+\item{model_type}{type of the trend fit one of "logistic", "none"}
 
 \item{DOSE}{name of the column holding the DOSE values default to \code{DOSE}}
 
 \item{color_fill}{name of the column to be used for color/fill default to DOSE column}
+
+\item{logistic_by_color_fill}{fit split by color? default \code{FALSE}}
 
 \item{exposure_metrics}{name(s) of the column(s) to be stacked into \code{expname} \code{exptile} and split into \code{exposure_metric_split}}
 
@@ -55,7 +77,11 @@ gglogisticexpdist(
 
 \item{exposure_metric_plac_value}{special exposure code for placebo default 0}
 
-\item{exposure_distribution}{one of distributions, lineranges or none}
+\item{exposure_distribution}{one of distributions, lineranges, boxplots or none}
+
+\item{exposure_distribution_percent}{show percent of distribution between binlimits \code{TRUE}/\code{FALSE}}
+
+\item{exposure_distribution_percent_text_size}{distribution percentages text size default to 5}
 
 \item{dose_plac_value}{string identifying placebo in DOSE column}
 
@@ -63,25 +89,52 @@ gglogisticexpdist(
 
 \item{ylab}{text to be used as y axis label}
 
+\item{points_alpha}{alpha transparency for points}
+
+\item{points_show}{show the observations \code{TRUE}/\code{FALSE}}
+
+\item{prob_obs_byexptile}{observed probability by exptile \code{TRUE}/\code{FALSE}}
+
+\item{prob_obs_byexptile_plac}{observed probability by exptile placebo \code{TRUE}/\code{FALSE}}
+
+\item{prob_obs_byexptile_group}{additional grouping for exptile probabilities default \code{none}}
+
 \item{prob_text_size}{probability text size default to 5}
 
 \item{prob_obs_bydose}{observed probability by dose \code{TRUE}/\code{FALSE}}
 
-\item{N_text_size}{N responders/Ntotal by exposure bin text size default to 5}
+\item{prob_obs_bydose_plac}{observed probability by placebo dose \code{TRUE}/\code{FALSE}}
 
-\item{binlimits_text_size}{5 binlimits text size}
+\item{Nresp_Ntot_show}{show N responders/Ntotal ? \code{TRUE}/\code{FALSE}}
+
+\item{Nresp_Ntot_size}{N responders/Ntotal text size default to 5}
+
+\item{Nresp_Ntot_ypos}{y position for N responders/Ntotal two text elements the first for by exptile and the second
+for by dose/color options include \verb{with percentages} \code{top} \code{bottom}}
+
+\item{Nresp_Ntot_sep}{character string to separate N responders/ Ntotal default \code{/}}
+
+\item{binlimits_show}{show the binlimits vertical lines \code{TRUE}/\code{FALSE}}
+
+\item{binlimits_text_size}{binlimits text size default to 5}
 
 \item{binlimits_ypos}{binlimits y position default to 0}
 
-\item{binlimits_color}{binlimits text color default to "gray70"}
+\item{binlimits_color}{binlimits text color default to alpha("gray70",0.5)}
 
 \item{dist_position_scaler}{space occupied by the distribution default to 0.2}
 
-\item{dist_offset}{offset where the distribution position starts 0}
+\item{dist_offset}{offset where the distribution position starts default to 0}
+
+\item{dist_scale}{scaling parameter for ggridges default to 0.9}
 
 \item{lineranges_ypos}{where to put the lineranges -1}
 
 \item{lineranges_dodge}{lineranges vertical dodge value 1}
+
+\item{lineranges_doselabel}{\code{TRUE}/\code{FALSE}}
+
+\item{proj_bydose}{project the probabilities on logistic curve \code{TRUE}/\code{FALSE}}
 
 \item{yproj}{project the probabilities on y axis \code{TRUE}/\code{FALSE}}
 
@@ -94,6 +147,8 @@ gglogisticexpdist(
 \item{facet_formula}{facet formula to be use otherwise \code{endpoint ~ expname}}
 
 \item{theme_certara}{apply certara colors and format for strips and default colour/fill}
+
+\item{return_list}{What to return if True a list of the datasets and plot is returned instead of only the plot}
 }
 \description{
 Produces a logistic fit plot with a facettable exposures/quantiles/distributions in ggplot2
@@ -122,7 +177,14 @@ gglogisticexpdist(data = effICGI |>
                  yproj_xpos = -15,
                  yproj_dodge = 10,
                  dist_position_scaler = 0.1,
-                 dist_offset = -0.1)
+                 dist_offset = -0.1,
+                 Nresp_Ntot_ypos = c("with percentages","bottom"),
+                 prob_obs_bydose_plac = TRUE,
+                 prob_obs_byexptile_plac = FALSE,
+                 prob_obs_byexptile_group = "none",
+                 binlimits_ypos = 0.3,
+                 binlimits_color = "#475c6b",
+                 points_alpha= 0.8)
                  
 # Example 2                
 gglogisticexpdist(data = effICGI |>
@@ -135,10 +197,14 @@ gglogisticexpdist(data = effICGI |>
                  exposure_metric_plac_value = 0,
                  exposure_distribution ="lineranges",
                  lineranges_ypos = -0.2,
-                 lineranges_dodge = 0.4,
-                 prob_obs_bydose = TRUE,
-                 yproj_xpos = -5,
-                 yproj_dodge = 5,
+                 lineranges_dodge = 0.2,
+                 lineranges_doselabel = TRUE,
+                 Nresp_Ntot_ypos = c("with percentages","bottom"),
+                 prob_obs_bydose_plac = TRUE,
+                 prob_obs_byexptile_plac = FALSE,
+                 prob_obs_byexptile_group = "none",yproj_xpos = -1,
+                 yproj_dodge = 2,
+                 binlimits_color = "#475c6b",
                  dist_position_scaler = 0.1)
 
 
@@ -176,7 +242,7 @@ gglogisticexpdist(data = effICGI  |>
                  yproj_dodge = 20,
                  prob_text_size = 6,
                  binlimits_text_size = 6,
-                 N_text_size = 4,
+                 Nresp_Ntot_show = TRUE,
                  dist_position_scaler = 0.15)+
                  ggplot2::scale_x_continuous(breaks = seq(0,350,50),
                  expand = ggplot2::expansion(add= c(0,0),mult=c(0,0)))+
@@ -197,7 +263,8 @@ gglogisticexpdist(data = effICGI  |>
                  dist_position_scaler = 1, dist_offset = -1 ,
                  yproj_xpos =  -20 ,
                  yproj_dodge = 20 ,
-                 exposure_distribution ="lineranges")
+                 exposure_distribution ="lineranges",
+                 lineranges_doselabel = TRUE)
                  
 #Example 5
 gglogisticexpdist(data = effICGI |> dplyr::filter(Endpoint=="ICGI"), 
@@ -238,8 +305,68 @@ b <-   gglogisticexpdist(data = effICGI, #
         strip.background.y = element_blank())
 library(patchwork)
 (a | b ) +
-  plot_layout(guides = "collect")&
+  plot_layout(guides = "collect", axes = "collect_x")&
   theme(legend.position = "top")
-                  
+
+#Example 7
+effICGI <- logistic_data |>
+dplyr::filter(!is.na(ICGI))|>
+dplyr::filter(!is.na(AUC))
+effICGI$DOSE <- factor(effICGI$DOSE,
+                      levels=c("0", "600", "1200","1800","2400"),
+                      labels=c("Placebo", "600 mg", "1200 mg","1800 mg","2400 mg"))
+effICGI$STUDY <- factor(effICGI$STUDY)
+effICGI$ICGI2 <- ifelse(effICGI$ICGI7 < 4,1,0)
+effICGI$ICGI3 <- ifelse(effICGI$ICGI7 < 5,1,0)
+
+effICGI <- tidyr::gather(effICGI,Endpoint,response,ICGI,ICGI2,ICGI3)
+effICGI$endpointcol2 <- effICGI$Endpoint
+effICGI$endpointcol3 <- effICGI$Endpoint
+gglogisticexpdist(data = effICGI,
+                  response = "response",
+                 endpoint = "Endpoint",
+                  exposure_metrics = c("AUC"),
+                  exposure_metric_split = c("tertile"),
+                  exposure_metric_soc_value = -99,
+                  exposure_metric_plac_value = 0,
+                  color_fill = "endpointcol2",                   
+                  logistic_by_color_fill = TRUE,
+                  Nresp_Ntot_show = TRUE,
+                  Nresp_Ntot_ypos = c("with percentages","bottom"),
+                  prob_obs_byexptile = FALSE,
+                  prob_obs_byexptile_group="endpointcol3",
+                  prob_obs_byexptile_plac = FALSE,
+                  prob_obs_bydose_plac = TRUE,
+                  binlimits_color = "#475c6b",
+                  exposure_distribution ="distributions",
+                  prob_obs_bydose = TRUE,
+                  proj_bydose = FALSE,
+                  yproj = FALSE,
+                  dist_position_scaler = 0.1,
+                  dist_offset = -0.1)+
+  facet_grid(expname~Endpoint,scales="free_x")
+#Example 8  
+gglogisticexpdist(data = effICGI,
+                  response = "response",
+                 endpoint = "endpointcol2",
+                  exposure_metrics = c("AUC"),
+                  exposure_metric_split = c("quartile"),
+                  exposure_metric_soc_value = -99,
+                  exposure_metric_plac_value = 0,
+                  color_fill = "Endpoint",                   
+                  logistic_by_color_fill = TRUE,
+                  Nresp_Ntot_show = FALSE, points_show = FALSE,
+                  prob_obs_byexptile = TRUE,
+                  prob_obs_byexptile_group="endpointcol3",
+                  prob_obs_byexptile_plac = TRUE,
+                  prob_obs_bydose = FALSE,
+                  prob_obs_bydose_plac = FALSE,
+                  binlimits_color = "#475c6b",
+                  exposure_distribution ="distributions",
+                  proj_bydose = FALSE,
+                  yproj = FALSE,
+                  dist_position_scaler = 0.1,
+                  dist_offset = -0.1)+
+  facet_grid(expname~.,scales="free_x")
 }
 }

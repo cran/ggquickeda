@@ -16,6 +16,12 @@ ggkmrisktable(
   exposure_metric_split = c("median", "tertile", "quartile", "none"),
   exposure_metric_soc_value = -99,
   exposure_metric_plac_value = 0,
+  exposure_metric_soc_name = "SOC",
+  exposure_metric_plac_name = "Placebo",
+  show_exptile_values = FALSE,
+  show_exptile_values_pos = c("left", "right"),
+  show_exptile_values_textsize = 5,
+  show_exptile_values_order = c("default", "reverse"),
   color_fill = "exptile",
   linetype = "exptile",
   xlab = "Time of follow_up",
@@ -30,7 +36,11 @@ ggkmrisktable(
   nrisk_filterout0 = FALSE,
   km_logrank_pvalue = FALSE,
   km_logrank_pvalue_pos = c("left", "right"),
+  km_logrank_pvalue_textsize = 5,
+  km_logrank_pvalue_cutoff = 0.001,
+  km_logrank_pvalue_digits = 3,
   km_trans = c("identity", "event", "cumhaz", "cloglog"),
+  km_linewidth = 1,
   km_ticks = TRUE,
   km_band = TRUE,
   km_conf_int = 0.95,
@@ -43,7 +53,8 @@ ggkmrisktable(
   facet_formula = NULL,
   facet_ncol = NULL,
   facet_strip_position = c("top", "top", "top", "top"),
-  theme_certara = TRUE
+  theme_certara = TRUE,
+  return_list = FALSE
 )
 }
 \arguments{
@@ -68,6 +79,18 @@ ggkmrisktable(
 \item{exposure_metric_soc_value}{special exposure code for standard of care default -99}
 
 \item{exposure_metric_plac_value}{special exposure code for placebo default 0}
+
+\item{exposure_metric_soc_name}{soc name default to "soc"}
+
+\item{exposure_metric_plac_name}{placebo name default to "placebo"}
+
+\item{show_exptile_values}{FALSE}
+
+\item{show_exptile_values_pos}{"left" or "right"}
+
+\item{show_exptile_values_textsize}{default to 5}
+
+\item{show_exptile_values_order}{the order of the entries "default" or "reverse"}
 
 \item{color_fill}{name of the column to be used for color/fill default to \code{exptile}}
 
@@ -97,7 +120,15 @@ ggkmrisktable(
 
 \item{km_logrank_pvalue_pos}{"left" or "right"}
 
+\item{km_logrank_pvalue_textsize}{pvalue text size default to 5}
+
+\item{km_logrank_pvalue_cutoff}{pvalue below which to print as p < cutoff}
+
+\item{km_logrank_pvalue_digits}{pvalue ndigits for round function}
+
 \item{km_trans}{one of "identity","event","cumhaz","cloglog"}
+
+\item{km_linewidth}{linewidth for the km curves default to 1}
 
 \item{km_ticks}{TRUE}
 
@@ -124,6 +155,8 @@ ggkmrisktable(
 \item{facet_strip_position}{position in sequence for the variable used in faceting default to c("top","top","top","top")}
 
 \item{theme_certara}{apply certara colors and format for strips and default colour/fill}
+
+\item{return_list}{What to return if True a list of the datasets and plot is returned instead of only the plot}
 }
 \description{
 Produces a km plot with a facettable risk table in ggplot2
@@ -170,6 +203,8 @@ ggkmrisktable(data = lung_long, time= "time", status ="DV",
              km_median = "medianci",
              km_band = TRUE,
              km_trans = "event",
+             show_exptile_values = TRUE,
+             show_exptile_values_pos = "right",
              nrisk_table_breaktimeby = 200,
              facet_ncol = 3,
              facet_formula = ~expname)
@@ -189,6 +224,8 @@ ggkmrisktable(data = lung_long, time = "time", status = "DV",
              km_median = "table",
              km_median_table_pos = "right",
              km_logrank_pvalue = TRUE,
+             km_logrank_pvalue_cutoff = 0.0001,
+             km_logrank_pvalue_digits = 3,
              km_band = TRUE,
              nrisk_table_breaktimeby = 200,
              facet_ncol = 3,
@@ -215,7 +252,7 @@ ggkmrisktable(data=lung_long,
 ggkmrisktable(data=lung_long,
              exposure_metrics = c("ph.karno","age"),
              exposure_metric_split = "none",
-              color_fill = "facetdum",
+              color_fill = "none",
              linetype = "none",
              nrisk_table_variables = c("n.risk", "pct.risk", "n.event", "cum.n.event", "n.censor"),
               km_median = "table",

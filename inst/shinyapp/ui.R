@@ -1170,9 +1170,8 @@ function(request) {
                                    ),selected="None"
                                    ,inline=TRUE),
                       conditionalPanel(
-                        " input.jitterdirection== 'quasirandom' |
+                        " input.jitterdirection== 'quasirandom' ||
                           input.jitterdirection== 'beeswarm'",
-                        inline_ui(checkboxInput('groupOnX', 'group on X', value = TRUE, width='120px' )),
                         inline_ui(numericInput("dodge.width",label = "Dodge Width",
                                                value = 0, min = 0, step = 0.1, width='120px'))
                       ),
@@ -1275,6 +1274,7 @@ function(request) {
                     3,
                     conditionalPanel(
                       " input.line== 'Lines' ",
+                      checkboxInput('linepath', 'Respect data order?'),
                       checkboxInput('lineignorecol', 'Ignore Mapped Color'),
                       
                       conditionalPanel(
@@ -1513,12 +1513,14 @@ function(request) {
                           conditionalPanel("input.barplotaddition",
                           checkboxInput('barplotlabel', 'Show Counts/Percentages ?', value = FALSE),
                           conditionalPanel(" input.barplotaddition && input.barplotlabel",
-                                           checkboxInput('barplotpercent',
-                                                         'Compute Percentages instead of Counts ?',
-                                                         value = FALSE)
+                                           radioButtons("barplotlabeltype", "Select Labels:",
+                                                        c("Counts" = "barplotcount",
+                                                          "Percentages" = "barplotpercent",
+                                                          "Counts/Percentages" = "barplotcountpercent"),
+                                                        inline=TRUE )
                           ),
                           conditionalPanel(" input.barplotaddition &&
-                                           input.barplotlabel && input.barplotpercent ",
+                                           input.barplotlabel && input.barplotlabeltype!='barplotcount' ",
                                            numericInput("nroundbarplotpercentdigits",
                                                         label = "Accuracy of Percent Digits",
                                                         value = 1, min=0,max=10) 
@@ -1555,7 +1557,9 @@ function(request) {
                          ),
                   column (12,
                           conditionalPanel('input.barplotaddition &&
-                          input.barplotlabel && input.barplotpercent && input.positionbar == "position_fill(vjust = 0.5)" ',
+                          input.barplotlabel &&
+                          input.barplotpercent &&
+                          input.positionbar == "position_fill(vjust = 0.5)" ',
                   h6("Currently there is ggplot2 text label limitations when Percentages and position 'Sum to 100%' are selected as such `ggally` `stat_prop` computed by the x or y axis values is used.")
                           )
                   )
@@ -1958,7 +1962,10 @@ function(request) {
                                                    radioButtons("mean_N_position", "N Positioning:",
                                                                 c("min" = "min","max" = "max",
                                                                   "lower/left edge" = "below",
-                                                                  "upper/right edge" = "up"
+                                                                  "upper/right edge" = "up",
+                                                                  "at add adj value" = "fixed",
+                                                                  "at mean value" ="mean",
+                                                                  "at median value" ="median"
                                                                 ), inline = TRUE),
                                                    numericInput("mean_N_add",label = "N Additive adjustment",
                                                                 value = 0, min = NA, max = NA, step = 0.1),
@@ -2135,7 +2142,10 @@ function(request) {
                                         radioButtons("median_N_position", "N Positioning:",
                                                      c("min" = "min","max" = "max",
                                                        "lower/left edge" = "below",
-                                                       "upper/right edge" = "up"
+                                                       "upper/right edge" = "up",
+                                                       "at add adj value" = "fixed",
+                                                       "at mean value" ="mean",
+                                                       "at median value" ="median"
                                                      ), inline = TRUE),
                                         numericInput("median_N_add",label = "N Additive adjustment",
                                                      value = 0, min = NA, max = NA, step = 0.1),
