@@ -56,7 +56,7 @@ plogis <- function(x) exp(x)/(1+exp(x))
 #   ggresponseexpdist(model_type = model_type,...)
 # }
 
-#' Create a fit vs exposure(s)plot
+#' Create a general fit vs exposure(s) plot
 #'
 #' Produces a fit as per model_type plot with a facettable exposures/quantiles/distributions in ggplot2
 #' @param data Data to use with multiple endpoints stacked into response (values), Endpoint(endpoint name)
@@ -139,6 +139,7 @@ plogis <- function(x) exp(x)/(1+exp(x))
 #'legend_order = c("color","shape","model"),
 #'color_legend_title ="Dose\nLevels")
 #'
+#'\dontrun{
 #'# Example 2
 #'ggresponseexpdist(data = effICGI |>
 #'dplyr::filter(Endpoint=="ICGI"),
@@ -176,8 +177,7 @@ plogis <- function(x) exp(x)/(1+exp(x))
 #'                  binlimits_color = "#475c6b",
 #'                  binlimits_ypos = 0.2,
 #'                  points_alpha= 0.1)
-#'                  
-#'\dontrun{
+#'   
 #'# Example 5 
 #' effICGI <- logistic_data |>
 #' dplyr::filter(!is.na(ICGI))|>
